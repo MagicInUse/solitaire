@@ -1,3 +1,8 @@
+/**
+ * @module layout
+ * Utility functions for computing dynamic card layout within tableau columns.
+ */
+
 import type { Pile } from '../types/cards'
 import {
   CARD_H,
@@ -13,13 +18,17 @@ import {
  *
  * The industry-standard approach (Microsoft Solitaire, Google Solitaire,
  * MobilityWare, etc.): compress the visible peek between cards so the column
- * always fits within TABLEAU_AVAILABLE_H, while keeping a minimum offset so
+ * always fits within `TABLEAU_AVAILABLE_H`, while keeping a minimum offset so
  * rank/suit corners remain readable.
  *
  * Strategy (two-pass):
- *   Pass 1 — compress face-up offset only; face-down stays normal.
- *   Pass 2 — if face-up is already at minimum and still overflowing,
- *             also compress face-down offset.
+ * - **Pass 1** — compress face-up offset only; face-down stays at its default.
+ * - **Pass 2** — if face-up is already at minimum and still overflowing,
+ *   also compress the face-down offset.
+ *
+ * @param pile - The ordered array of cards in a single tableau column.
+ * @returns `fuOffset` — pixel gap between face-up cards;
+ *          `fdOffset` — pixel gap between face-down cards.
  */
 export function computeColumnOffsets(pile: Pile): { fuOffset: number; fdOffset: number } {
   if (pile.length <= 1) return { fuOffset: FACEUP_OFFSET, fdOffset: FACEDOWN_OFFSET }

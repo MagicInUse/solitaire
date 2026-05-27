@@ -2,17 +2,27 @@ import type { Card } from '../types/cards'
 import { CardFace } from './CardFace'
 import { CARD_W, CARD_H, FACEUP_OFFSET } from '../constants/canvas'
 
+/** Props for {@link DragStack}. */
 interface DragStackProps {
+  /** Ordered array of cards in the dragged stack (top → bottom). */
   cards: Card[]
-  /** Canvas scale — used to render the overlay at the correct screen-space size. */
+  /**
+   * Canvas scale factor from {@link useGameScale}.
+   * Applied as `transform: scale(scale)` so the overlay cards render at
+   * the same visual size as their in-canvas counterparts.
+   */
   scale: number
 }
 
 /**
- * Rendered inside DragOverlay (portalled to document.body — screen space).
- * Applies transform:scale(scale) on the inner wrapper so fixed-px fonts in
- * Card.module.css scale identically to the cards inside the GameCanvas
- * (which are visually enlarged by GameCanvas's own CSS transform:scale).
+ * Drag overlay rendered inside dnd-kit's `DragOverlay` (portalled to
+ * `document.body` — screen space).
+ *
+ * Applies `transform: scale(scale)` on the inner wrapper so the fixed-pixel
+ * fonts in `Card.module.css` scale identically to the cards visible inside
+ * `GameCanvas` (which is enlarged by its own CSS `transform: scale()`).
+ *
+ * The overlay is not interactive; it is purely cosmetic.
  */
 export function DragStack({ cards, scale }: DragStackProps) {
   const totalHeight = (cards.length - 1) * FACEUP_OFFSET + CARD_H

@@ -4,17 +4,42 @@ import type { Card } from "../types/cards"
 import { CardFace } from "./CardFace"
 import { CARD_W, CARD_H } from "../constants/canvas"
 
+/** Props for {@link CardView}. */
 interface CardViewProps {
+  /** The card data to render. */
   card: Card
+  /** Index of this card within its source pile. */
   cardIndex: number
+  /** Which area of the board this card lives in. */
   sourceType: "waste" | "tableau" | "foundation"
+  /** Column / slot index within the source area (undefined for waste). */
   sourceIndex?: number
+  /**
+   * Whether the card should be draggable.
+   * Face-down cards are always non-draggable regardless of this flag.
+   * @defaultValue true
+   */
   draggable?: boolean
-  /** Canvas scale — divides the screen-pixel drag delta so in-canvas movement is correct. */
+  /**
+   * Canvas scale factor from {@link useGameScale}.
+   * Divides the screen-pixel drag delta so the ghost card tracks the pointer
+   * correctly inside the CSS `transform: scale()` canvas.
+   */
   scale: number
+  /** Called when the user double-clicks a face-up top card. */
   onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
 }
 
+/**
+ * Interactive, draggable wrapper around {@link CardFace}.
+ *
+ * Registers the card with dnd-kit's `useDraggable` and corrects the
+ * transform delta for the CSS-scaled canvas so the drag ghost tracks the
+ * pointer at the right canvas-logical position.
+ *
+ * While dragging, the original card becomes invisible (opacity 0); the
+ * visible clone is rendered by `DragOverlay` via {@link DragStack}.
+ */
 export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick }: CardViewProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,

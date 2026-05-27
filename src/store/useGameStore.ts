@@ -1,3 +1,11 @@
+/**
+ * @module useGameStore
+ * Zustand store managing the full Klondike Solitaire game state.
+ *
+ * State is persisted to `localStorage` under the key `"solitaire-game"`
+ * so in-progress games survive page reloads.
+ */
+
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Card, Pile, Rank, Suit } from '../types/cards'
@@ -6,6 +14,7 @@ import type { Card, Pile, Rank, Suit } from '../types/cards'
 
 const SUITS: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
 
+/** Builds a fresh, unshuffled 52-card deck. */
 function buildDeck(): Card[] {
   const deck: Card[] = []
   for (const suit of SUITS) {
@@ -16,6 +25,10 @@ function buildDeck(): Card[] {
   return deck
 }
 
+/**
+ * Returns a new array with the elements in a uniformly random order
+ * (Fisher-Yates / Knuth shuffle).
+ */
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -25,6 +38,13 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
+/**
+ * Shuffles the deck and deals it into the standard Klondike opening position:
+ * seven tableau columns (column *i* has *i + 1* cards, last one face-up),
+ * with all remaining cards placed face-down on the stock.
+ *
+ * @param deck - A full 52-card deck (order is randomised internally).
+ */
 function deal(deck: Card[]): {
   stock: Pile
   waste: Pile
@@ -55,14 +75,18 @@ function deal(deck: Card[]): {
 
 // ─── Store types ─────────────────────────────────────────────────────────────
 
+/** Shape of the Zustand game store — state slices plus action methods. */
 interface GameStore {
   stock: Pile
   waste: Pile
   foundations: [Pile, Pile, Pile, Pile]
   tableau: [Pile, Pile, Pile, Pile, Pile, Pile, Pile]
 
+  /** Start a fresh game with a new shuffled deal. */
   newGame: () => void
+  /** Draw the top card from the stock onto the waste pile. */
   drawFromStock: () => void
+  /** Recycle the waste pile back into the stock when the stock is empty. */
   resetStock: () => void
 
   /** Move a card (or stack) from one pile to another. */
@@ -80,6 +104,12 @@ interface GameStore {
 
 // ─── Store implementation ─────────────────────────────────────────────────────
 
+/**
+ * Primary Zustand hook for the Klondike Solitaire game.
+ *
+ * Persists state to `localStorage` (key: `"solitaire-game"`, version 2).
+ * Consume via `const { stock, moveCards, ... } = useGameStore()`.
+ */
 export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({

@@ -54,6 +54,22 @@ function canMoveCards(
   return bottom.rank === top.rank - 1 && isRed(bottom.suit) !== isRed(top.suit)
 }
 
+/**
+ * Root game component.
+ *
+ * Owns the dnd-kit `DndContext` (deliberately placed **outside** `GameCanvas`
+ * so all pointer-delta and overlay-positioning math happens in screen space,
+ * not inside the CSS `transform: scale()` canvas).
+ *
+ * Responsibilities:
+ * - Wires dnd-kit sensors (pointer + touch with activation constraints).
+ * - Maintains ephemeral UI state: `dragSourceInfo` (current drag) and
+ *   `dragOverInfo` (valid hover target for preview rendering).
+ * - Validates moves with `canMoveCards` on `dragOver` and `dragEnd`.
+ * - Dispatches `moveCards` and `flipTableauTop` to {@link useGameStore}.
+ * - Handles double-click auto-move to foundations.
+ * - Renders the `DragOverlay` via {@link DragStack} for the floating clone.
+ */
 export function GameBoard() {
   const {
     stock, waste, foundations, tableau,

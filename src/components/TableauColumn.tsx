@@ -6,21 +6,48 @@ import { computeColumnOffsets } from '../utils/layout'
 import type { Card, Pile } from '../types/cards'
 import styles from './TableauColumn.module.css'
 
+/**
+ * Identifies the card (or bottom of a stack) currently being dragged.
+ * Shared with {@link Foundation} to determine ghost rendering.
+ */
 export interface DragSourceInfo {
+  /** Area the drag originated from. */
   sourceType: string
+  /** Column / slot index within the source area (undefined for waste). */
   sourceIndex?: number
+  /** Index of the topmost dragged card within its source pile. */
   cardIndex: number
 }
 
+/** Props for {@link TableauColumn}. */
 interface TableauColumnProps {
+  /** Zero-based column index (0–6). */
   colIndex: number
+  /** Ordered array of cards in this column, bottom → top. */
   pile: Pile
+  /** Active drag source info used to render ghost outlines for moving cards. */
   dragSourceInfo: DragSourceInfo | null
+  /** Canvas scale factor from {@link useGameScale}. */
   scale: number
+  /** Called when the user double-clicks a face-up top card. */
   onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
+  /**
+   * Cards to render as a semi-transparent preview stack appended below the
+   * real pile when a valid drag is hovered over this column.
+   */
   previewCards?: Card[]
 }
 
+/**
+ * One of the seven tableau columns on the Klondike board.
+ *
+ * - Registers as a dnd-kit drop target (`tableau-{colIndex}`).
+ * - Uses {@link computeColumnOffsets} to compress card peek distances so
+ *   tall stacks always fit within the available canvas height.
+ * - Cards at or above the drag pick-up point render as ghost outlines.
+ * - Appends an optional translucent preview stack while a valid card is
+ *   hovered above the column.
+ */
 export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleClick, previewCards }: TableauColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `tableau-${colIndex}`,

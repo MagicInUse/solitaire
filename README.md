@@ -1,73 +1,78 @@
-# React + TypeScript + Vite
+# Solitaire
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A clean, mobile-first Klondike Solitaire game built as a Progressive Web App (PWA). Designed for landscape play on phones and tablets — drag cards, double-tap to auto-move to foundations, and pick up right where you left off.
 
-Currently, two official plugins are available:
+**[▶ Play now at solitaire.magicapps.dev](https://solitaire.magicapps.dev)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Klondike rules** — standard draw-one with full move validation
+- **Drag & drop** — pointer and touch support via dnd-kit, with multi-card stack dragging
+- **Double-click / double-tap** — auto-sends a card to the correct foundation
+- **Drop previews** — translucent card ghost shows where a stack will land
+- **Adaptive layout** — fixed canvas scales uniformly to any screen size; tableau columns compress automatically for tall stacks
+- **Persisted state** — game survives page reloads via `localStorage`
+- **PWA** — installable on iOS and Android; works fully offline
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## How to Play
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. Click the **stock pile** (top-left) to flip cards onto the waste pile.
+2. **Drag** cards between tableau columns — alternating colours, descending rank.
+3. **Drag** or **double-click** a card to send it to a foundation — same suit, ascending from Ace.
+4. Click the **↺ reset** icon when the stock is empty to recycle the waste pile.
+5. Press **New Game** to start over.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Tech Stack
+
+| | |
+|---|---|
+| Framework | [React 19](https://react.dev) + [TypeScript](https://www.typescriptlang.org) |
+| Build | [Vite](https://vitejs.dev) |
+| State | [Zustand](https://zustand-demo.pmnd.rs) (with `persist` middleware) |
+| Drag & Drop | [dnd-kit](https://dndkit.com) |
+| PWA | [vite-plugin-pwa](https://vite-pwa-org.netlify.app) |
+
+---
+
+## Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start dev server with HMR
+pnpm dev
+
+# Type-check + production build
+pnpm build
+
+# Preview the production build locally
+pnpm preview
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Project Structure
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+src/
+  types/        # Core domain types (Card, Pile, GameState)
+  constants/    # Design-canvas dimensions and layout constants
+  utils/        # Layout utilities (tableau column offset compression)
+  store/        # Zustand game store (deck, deal, move actions)
+  hooks/        # useGameScale — viewport-to-canvas scale factor
+  components/   # React components (CardFace, CardView, GameBoard, …)
+```
+
+---
+
+## License
+
+MIT
+

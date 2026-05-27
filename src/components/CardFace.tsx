@@ -7,11 +7,23 @@ const SUIT_SYMBOLS: Record<string, string> = {
   hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠',
 }
 
+/** Props for {@link CardFace}. */
 interface CardFaceProps {
+  /** The card data to render. */
   card: Card
 }
 
-/** Pure visual card — no dnd hooks. Used by CardView and DragStack. */
+/**
+ * Pure visual representation of a single playing card — no drag-and-drop
+ * hooks or interaction logic.
+ *
+ * - **Face-down**: renders the card back with the branded logo.
+ * - **Face-up**: renders rank + suit corners and a centre suit symbol,
+ *   coloured red (hearts/diamonds) or black (clubs/spades).
+ *
+ * Used by {@link CardView} (interactive, draggable wrapper) and
+ * {@link DragStack} (drag overlay clone).
+ */
 export function CardFace({ card }: CardFaceProps) {
   if (!card.faceUp) {
     return (
