@@ -9,7 +9,9 @@ export default defineConfig({
     tailwindcss(),
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' — never auto-reloads the page mid-game. The UpdateBanner
+      // component in App.tsx surfaces the update to the user when they're idle.
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Solitaire by MagicApps',
@@ -48,6 +50,27 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Essential for SPA offline: serve the cached app shell for any
+        // navigation request that isn't explicitly precached.
+        navigateFallback: 'index.html',
+        // Take control of all existing clients immediately so the first install
+        // doesn't leave old tabs running the previous version.
+        skipWaiting: true,
+        clientsClaim: true,
+        runtimeCaching: [
+          {
+            // Static assets: serve from cache first; refresh in the background.
+            urlPattern: /\.(?:png|ico|svg|woff2)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'static-assets',
+              expiration: {
+                maxEntries: 128,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+              },
+            },
+          },
+        ],
       },
     }),
   ],

@@ -32,10 +32,15 @@ export interface GameLayout {
   layout: GameLayoutMode
 }
 
-function computeLayout(): GameLayout {
-  const w = window.innerWidth
-  const h = window.innerHeight
-
+/**
+ * Compute layout from explicit width/height values.
+ *
+ * Accepts measured dimensions rather than reading `window.innerWidth/innerHeight`
+ * directly — those can return stale values on iOS Safari during orientation
+ * transitions, causing the scale to be computed against the pre-rotation size
+ * and sending cards off-screen until the next paint cycle.
+ */
+function computeLayout(w: number, h: number): GameLayout {
   if (h > w) {
     return {
       scale: Math.min(w / CANVAS_W_PORTRAIT, h / CANVAS_H_PORTRAIT, MAX_SCALE),
@@ -50,27 +55,65 @@ function computeLayout(): GameLayout {
   }
 }
 
+/** Read the committed rendered dimensions of <html> — reliable on iOS during rotation. */
+function getDocumentDimensions(): [number, number] {
+  const el = document.documentElement
+  return [el.clientWidth, el.clientHeight]
+}
+
 /**
  * Returns the uniform CSS scale factor needed to fit the fixed-size game
  * canvas inside the current browser viewport, along with the current layout
- * mode. Recalculates whenever the viewport dimensions change via a
- * `ResizeObserver` on `<html>` (more reliable than `window.resize` on mobile).
+ * mode. Recalculates whenever the viewport dimensions change.
+ *
+ * Two complementary listeners keep iOS orientation changes covered:
+ * - **ResizeObserver** on `<html>`: primary trigger; uses `entry.contentRect`
+ *   so the dimensions come from the observer callback, not a separate
+ *   `window.innerWidth` read that may still be stale.
+ * - **`orientationchange`** (debounced 150 ms): secondary safety-net for
+ *   browsers where the ResizeObserver fires before the layout has settled.
  *
  * Scale is capped at {@link MAX_SCALE}: on large screens (tablets, desktop)
  * the canvas stops growing and the surrounding felt world border appears instead.
  *
  * Canvas sizes:
- * - `portrait`:        390 × 750
- * - `landscape`:       844 × 390  (phones in landscape)
- * - `landscapeTablet`: 844 × 590  (tablets / desktop)
+ * - `portrait`:  390 × 750
+ * - `landscape`: 390 × 390
  */
 export function useGameScale(): GameLayout {
-  const [gameLayout, setGameLayout] = useState<GameLayout>(computeLayout)
+  const [gameLayout, setGameLayout] = useState<GameLayout>(() => {
+    const [w, h] = getDocumentDimensions()
+    return computeLayout(w, h)
+  })
 
   useEffect(() => {
-    const ro = new ResizeObserver(() => setGameLayout(computeLayout()))
+    // Primary: ResizeObserver dimensions come straight from the entry —
+    // avoids the stale window.innerWidth race on iOS during rotation.
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        setGameLayout(computeLayout(entry.contentRect.width, entry.contentRect.height))
+      }
+    })
     ro.observe(document.documentElement)
-    return () => ro.disconnect()
+
+    // Secondary: orientationchange fires before ResizeObserver catches up on
+    // some iOS versions. Debounced 150 ms so the viewport has time to settle.
+    let orientationTimer: ReturnType<typeof setTimeout>
+    const handleOrientationChange = () => {
+      clearTimeout(orientationTimer)
+      orientationTimer = setTimeout(() => {
+        const [w, h] = getDocumentDimensions()
+        setGameLayout(computeLayout(w, h))
+      }, 150)
+    }
+    window.addEventListener('orientationchange', handleOrientationChange)
+
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('orientationchange', handleOrientationChange)
+      clearTimeout(orientationTimer)
+    }
   }, [])
 
   return gameLayout

@@ -13,7 +13,16 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
+    /* Prevent elastic/bounce scroll on iOS from exposing the white chrome
+       background behind the app shell. */
+    overscroll-behavior: none;
     font-family: system-ui, sans-serif;
+  }
+
+  html {
+    /* Match the body felt so there's no white flash during initial paint or
+       when iOS briefly composites the page during a PWA resume. */
+    background-color: #0c3018;
   }
 
   body {
