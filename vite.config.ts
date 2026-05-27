@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/',
   plugins: [
+    tailwindcss(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -16,7 +18,7 @@ export default defineConfig({
         theme_color: '#1d1e2c',
         background_color: '#1d1e2c',
         display: 'standalone',
-        orientation: 'landscape',
+        orientation: 'any',
         start_url: '/',
         scope: '/',
         id: 'magicapps-solitaire',

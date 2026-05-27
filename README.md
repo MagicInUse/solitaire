@@ -2,7 +2,7 @@
 
 A clean, mobile-first Klondike Solitaire game built as a Progressive Web App (PWA). Designed for landscape play on phones and tablets — drag cards, double-tap to auto-move to foundations, and pick up right where you left off.
 
-**[▶ Play now at solitaire.magicapps.dev](https://solitaire.magicapps.dev)**
+**▶ [Play now at solitaire.magicapps.dev](https://solitaire.magicapps.dev)**
 
 ---
 

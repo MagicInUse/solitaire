@@ -2,9 +2,10 @@
  * @module canvas
  * Fixed design-canvas dimensions and layout constants.
  *
- * All values are logical pixels relative to a fixed 844 × 390 canvas.
+ * All values are logical pixels relative to a fixed canvas.
  * A CSS `transform: scale()` fits the canvas to any screen size at runtime.
  * Landscape orientation (844 × 390) matches a standard phone held sideways.
+ * Portrait orientation (390 × 750) matches a standard phone held upright.
  */
 
 // ─── Design canvas ────────────────────────────────────────────────────────────
@@ -12,10 +13,18 @@
 // A CSS scale() transform fits the canvas to whatever screen is displaying it.
 // Landscape orientation: 844 × 390 matches a standard phone held sideways.
 
-/** Logical canvas width in pixels. */
+/** Logical canvas width in pixels (landscape). */
 export const CANVAS_W = 844
-/** Logical canvas height in pixels. */
+/** Logical canvas height in pixels (landscape). */
 export const CANVAS_H = 390
+
+// Portrait orientation: 390 × 750 matches a standard phone held upright.
+// Note: CANVAS_W_PORTRAIT === CANVAS_H — both equal 390, the 7-column width.
+
+/** Logical canvas width in pixels (portrait). */
+export const CANVAS_W_PORTRAIT = 390
+/** Logical canvas height in pixels (portrait). */
+export const CANVAS_H_PORTRAIT = 750
 
 // ─── Card dimensions (standard playing card ratio 1 : 1.396) ─────────────────
 
@@ -49,5 +58,7 @@ export const MIN_FACEUP_OFFSET   = 12
 
 /** Y coordinate where the tableau columns start (top of first card). */
 export const TABLEAU_TOP         = PADDING + CARD_H + GAP         // 82 px
-/** Vertical space available for tableau columns below the top row. */
+/** Vertical space available for tableau columns below the top row (landscape). */
 export const TABLEAU_AVAILABLE_H = CANVAS_H - TABLEAU_TOP - PADDING  // 299 px
+/** Vertical space available for tableau columns below the top row (portrait). */
+export const TABLEAU_AVAILABLE_H_PORTRAIT = CANVAS_H_PORTRAIT - TABLEAU_TOP - PADDING  // 659 px

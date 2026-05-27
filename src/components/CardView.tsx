@@ -1,3 +1,4 @@
+import { useRef } from "react"
 import { useDraggable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import type { Card } from "../types/cards"
@@ -41,6 +42,8 @@ interface CardViewProps {
  * visible clone is rendered by `DragOverlay` via {@link DragStack}.
  */
 export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick }: CardViewProps) {
+  const lastTapRef = useRef<number>(0)
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
     disabled: !draggable || !card.faceUp,
@@ -54,12 +57,26 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
     ? { ...transform, x: transform.x / scale, y: transform.y / scale }
     : null
 
+  // Mobile browsers don't fire dblclick for touch; detect double-tap manually.
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!onDoubleClick) return
+    const now = Date.now()
+    if (now - lastTapRef.current < 300) {
+      e.preventDefault()
+      onDoubleClick(card, cardIndex, sourceType, sourceIndex)
+      lastTapRef.current = 0
+    } else {
+      lastTapRef.current = now
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
       onDoubleClick={onDoubleClick ? () => onDoubleClick(card, cardIndex, sourceType, sourceIndex) : undefined}
+      onTouchEnd={onDoubleClick ? handleTouchEnd : undefined}
       style={{
         width: CARD_W,
         height: CARD_H,

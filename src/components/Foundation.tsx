@@ -1,9 +1,9 @@
 import { useDroppable } from "@dnd-kit/core"
+import { clsx } from "clsx"
 import { CardView } from "./CardView"
 import { CardFace } from "./CardFace"
 import type { Card, Pile } from "../types/cards"
 import type { DragSourceInfo } from "./TableauColumn"
-import styles from "./Foundation.module.css"
 
 const SUIT_SYMBOLS = ["\u2665", "\u2666", "\u2663", "\u2660"]
 
@@ -48,9 +48,9 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard }: 
     pile.length > 0
 
   return (
-    <div ref={setNodeRef} className={`${styles.foundation} ${isOver ? styles.over : ""}`}>
+    <div ref={setNodeRef} className={clsx("relative w-[48px] h-[67px] rounded-[5px] shrink-0 [transition:background_0.15s]", isOver && "bg-white/15")}>
       {isGhosted ? (
-        <div className={styles.empty}>{SUIT_SYMBOLS[index]}</div>
+        <div className="w-full h-full rounded-[5px] border-2 border-dashed border-white/40 flex items-center justify-center text-[19px] text-white/40">{SUIT_SYMBOLS[index]}</div>
       ) : topCard ? (
         <CardView
           card={topCard}
@@ -60,10 +60,10 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard }: 
           scale={scale}
         />
       ) : (
-        <div className={styles.empty}>{SUIT_SYMBOLS[index]}</div>
+        <div className="w-full h-full rounded-[5px] border-2 border-dashed border-white/40 flex items-center justify-center text-[19px] text-white/40">{SUIT_SYMBOLS[index]}</div>
       )}
       {previewCard && (
-        <div className={styles.preview}>
+        <div className="absolute inset-0 opacity-55 pointer-events-none rounded-[5px] overflow-hidden">
           <CardFace card={previewCard} />
         </div>
       )}

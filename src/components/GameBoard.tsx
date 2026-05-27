@@ -22,7 +22,7 @@ import { Foundation } from "./Foundation"
 import { CardView } from "./CardView"
 import { DragStack } from "./DragStack"
 import { GameCanvas } from "./GameCanvas"
-import styles from "./GameBoard.module.css"
+
 
 // ─── Klondike move validation ──────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ export function GameBoard() {
     drawFromStock, resetStock, moveCards, flipTableauTop, newGame,
   } = useGameStore()
 
-  const scale = useGameScale()
+  const { scale, isPortrait } = useGameScale()
   const [dragSourceInfo, setDragSourceInfo] = useState<DragSourceInfo & { cards: Card[] } | null>(null)
   const [dragOverInfo, setDragOverInfo] = useState<{ toType: "tableau" | "foundation"; toIndex: number } | null>(null)
   // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
@@ -226,20 +226,20 @@ export function GameBoard() {
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
     >
       <GameCanvas>
-        <div className={styles.board}>
+        <div className="w-[390px] min-h-[390px] p-[9px] mx-auto flex flex-col gap-[6px]">
           {/* Top row: Stock / Waste / gap / Foundations */}
-          <div className={styles.topRow}>
+          <div className="flex gap-[6px] items-start h-[67px]">
             <div
-              className={styles.stockPile}
+              className="w-[48px] h-[67px] shrink-0 cursor-pointer"
               onClick={stock.length > 0 ? drawFromStock : resetStock}
               title={stock.length > 0 ? "Draw" : "Reset stock"}
             >
               {stock.length > 0
-                ? <div className={styles.stockBack}><img src={vqLogo} className={styles.stockBackLogo} alt="" draggable={false} /></div>
-                : <div className={styles.stockEmpty}>&#x21BA;</div>}
+                ? <div className="w-full h-full rounded-[5px] bg-[#1d1e2c] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] flex items-center justify-center overflow-hidden relative before:content-[''] before:absolute before:inset-[4px] before:bg-[#e9e9e9] before:rounded-[2px] before:z-0 after:content-[''] after:absolute after:inset-[4px] after:border after:border-[#9C528B]/75 after:rounded-[2px] after:pointer-events-none after:z-[2]"><img src={vqLogo} className="w-[20px] h-auto opacity-90 relative z-[3] pointer-events-none" alt="" draggable={false} /></div>
+                : <div className="w-full h-full rounded-[5px] border-2 border-dashed border-white/40 flex items-center justify-center text-[22px] text-white/50">&#x21BA;</div>}
             </div>
 
-            <div className={styles.wastePile}>
+            <div className="w-[48px] h-[67px] shrink-0">
               {topWaste && (
                 <CardView
                   card={topWaste}
@@ -251,7 +251,7 @@ export function GameBoard() {
               )}
             </div>
 
-            <div className={styles.spacer} />
+            <div className="flex-1" />
 
             {foundations.map((pile, i) => (
               <Foundation
@@ -266,7 +266,7 @@ export function GameBoard() {
           </div>
 
           {/* Tableau */}
-          <div className={styles.tableau}>
+          <div className="flex gap-[6px] items-start">
             {tableau.map((pile, i) => (
               <TableauColumn
                 key={i}
@@ -274,6 +274,7 @@ export function GameBoard() {
                 pile={pile}
                 dragSourceInfo={dragSourceInfo}
                 scale={scale}
+                isPortrait={isPortrait}
                 onDoubleClick={handleDoubleClick}
                 previewCards={dragOverInfo?.toType === 'tableau' && dragOverInfo.toIndex === i ? dragSourceInfo?.cards : undefined}
               />
@@ -282,7 +283,7 @@ export function GameBoard() {
         </div>
       </GameCanvas>
 
-      <button className={styles.newGame} onClick={newGame}>New Game</button>
+      <button className="fixed bottom-[16px] left-[16px] z-10 px-[22px] py-[9px] border-0 rounded-[6px] bg-black/38 text-white/90 text-[13px] font-semibold tracking-[0.04em] cursor-pointer [transition:background_0.15s] hover:bg-black/56 active:bg-black/68" onClick={newGame}>New Game</button>
 
       {/* DragOverlay is portalled to document.body (screen space).
           DndContext being outside the scaled canvas means pointer deltas

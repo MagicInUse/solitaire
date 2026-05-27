@@ -1,10 +1,10 @@
 import { useDroppable } from '@dnd-kit/core'
+import { clsx } from 'clsx'
 import { CardView } from './CardView'
 import { CardFace } from './CardFace'
-import { CARD_W, CARD_H } from '../constants/canvas'
+import { CARD_W, CARD_H, TABLEAU_AVAILABLE_H_PORTRAIT } from '../constants/canvas'
 import { computeColumnOffsets } from '../utils/layout'
 import type { Card, Pile } from '../types/cards'
-import styles from './TableauColumn.module.css'
 
 /**
  * Identifies the card (or bottom of a stack) currently being dragged.
@@ -29,6 +29,8 @@ interface TableauColumnProps {
   dragSourceInfo: DragSourceInfo | null
   /** Canvas scale factor from {@link useGameScale}. */
   scale: number
+  /** True when the viewport is in portrait orientation. */
+  isPortrait: boolean
   /** Called when the user double-clicks a face-up top card. */
   onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
   /**
@@ -48,14 +50,15 @@ interface TableauColumnProps {
  * - Appends an optional translucent preview stack while a valid card is
  *   hovered above the column.
  */
-export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleClick, previewCards }: TableauColumnProps) {
+export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, isPortrait, onDoubleClick, previewCards }: TableauColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `tableau-${colIndex}`,
     data: { toType: 'tableau', toIndex: colIndex },
   })
 
   // Per-column offsets — compressed automatically when tall stacks would overflow
-  const { fuOffset, fdOffset } = computeColumnOffsets(pile)
+  const tableauAvailableH = isPortrait ? TABLEAU_AVAILABLE_H_PORTRAIT : undefined
+  const { fuOffset, fdOffset } = computeColumnOffsets(pile, tableauAvailableH)
 
   // Dynamic height based on actual face-up/down card counts
   const colHeight =
@@ -75,11 +78,11 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleC
   return (
     <div
       ref={setNodeRef}
-      className={`${styles.column} ${isOver ? styles.over : ''}`}
+      className={clsx("relative shrink-0 rounded-[5px] [transition:background_0.15s]", isOver && "bg-white/12")}
       style={{ width: CARD_W, height: totalHeight }}
     >
       {pile.length === 0 ? (
-        <div className={styles.emptySlot} />
+        <div className="w-[48px] h-[67px] rounded-[5px] border-2 border-dashed border-white/30" />
       ) : (
         pile.map((card, i) => {
           // Compute absolute top offset by summing offsets of cards above
@@ -96,7 +99,7 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleC
           return (
             <div key={card.id} style={{ position: 'absolute', top, left: 0, zIndex: i }}>
               {isGhosted ? (
-                <div className={styles.ghost} />
+                <div className="w-[48px] h-[67px] rounded-[5px] border-2 border-dashed border-white/45 bg-white/6" />
               ) : (
                 <CardView
                   card={card}
@@ -115,7 +118,7 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleC
       {previewCards?.map((card, j) => (
         <div
           key={`preview-${card.id}`}
-          className={styles.previewCard}
+          className="w-[48px] h-[67px] opacity-55 pointer-events-none rounded-[5px] overflow-hidden"
           style={{ position: 'absolute', top: previewBaseTop + j * fuOffset, left: 0, zIndex: pile.length + j }}
         >
           <CardFace card={card} />
