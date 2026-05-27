@@ -4,6 +4,7 @@ import { CardView } from './CardView'
 import { CardFace } from './CardFace'
 import { CARD_W, CARD_H, TABLEAU_AVAILABLE_H_PORTRAIT } from '../constants/canvas'
 import { computeColumnOffsets } from '../utils/layout'
+import type { GameLayoutMode } from '../hooks/useGameScale'
 import type { Card, Pile } from '../types/cards'
 
 /**
@@ -29,8 +30,8 @@ interface TableauColumnProps {
   dragSourceInfo: DragSourceInfo | null
   /** Canvas scale factor from {@link useGameScale}. */
   scale: number
-  /** True when the viewport is in portrait orientation. */
-  isPortrait: boolean
+  /** Current layout mode — drives which tableau height budget to use. */
+  layout: GameLayoutMode
   /** Called when the user double-clicks a face-up top card. */
   onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
   /**
@@ -50,14 +51,14 @@ interface TableauColumnProps {
  * - Appends an optional translucent preview stack while a valid card is
  *   hovered above the column.
  */
-export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, isPortrait, onDoubleClick, previewCards }: TableauColumnProps) {
+export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, onDoubleClick, previewCards }: TableauColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `tableau-${colIndex}`,
     data: { toType: 'tableau', toIndex: colIndex },
   })
 
   // Per-column offsets — compressed automatically when tall stacks would overflow
-  const tableauAvailableH = isPortrait ? TABLEAU_AVAILABLE_H_PORTRAIT : undefined
+  const tableauAvailableH = layout === 'portrait' ? TABLEAU_AVAILABLE_H_PORTRAIT : undefined
   const { fuOffset, fdOffset } = computeColumnOffsets(pile, tableauAvailableH)
 
   // Dynamic height based on actual face-up/down card counts

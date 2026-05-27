@@ -76,7 +76,7 @@ export function GameBoard() {
     drawFromStock, resetStock, moveCards, flipTableauTop, newGame,
   } = useGameStore()
 
-  const { scale, isPortrait } = useGameScale()
+  const { scale, layout } = useGameScale()
   const [dragSourceInfo, setDragSourceInfo] = useState<DragSourceInfo & { cards: Card[] } | null>(null)
   const [dragOverInfo, setDragOverInfo] = useState<{ toType: "tableau" | "foundation"; toIndex: number } | null>(null)
   // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
@@ -226,7 +226,7 @@ export function GameBoard() {
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
     >
       <GameCanvas>
-        <div className="w-[390px] min-h-[390px] p-[9px] mx-auto flex flex-col gap-[6px]">
+        <div className="w-full min-h-full p-[9px] flex flex-col gap-[6px]">
           {/* Top row: Stock / Waste / gap / Foundations */}
           <div className="flex gap-[6px] items-start h-[67px]">
             <div
@@ -274,7 +274,7 @@ export function GameBoard() {
                 pile={pile}
                 dragSourceInfo={dragSourceInfo}
                 scale={scale}
-                isPortrait={isPortrait}
+                layout={layout}
                 onDoubleClick={handleDoubleClick}
                 previewCards={dragOverInfo?.toType === 'tableau' && dragOverInfo.toIndex === i ? dragSourceInfo?.cards : undefined}
               />

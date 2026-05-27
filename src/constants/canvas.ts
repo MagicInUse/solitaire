@@ -11,15 +11,18 @@
 // ─── Design canvas ────────────────────────────────────────────────────────────
 // All layout values are logical pixels relative to this fixed canvas.
 // A CSS scale() transform fits the canvas to whatever screen is displaying it.
-// Landscape orientation: 844 × 390 matches a standard phone held sideways.
+//
+// Both orientations share the same width (390 px = 7 columns + 6 gaps + 2 padding).
+// The scale factor = min(viewportW, viewportH) / 390 so the canvas always fills
+// as much of the screen as possible while the surrounding felt remains visible.
+// Landscape canvas is square (390 × 390); portrait is taller (390 × 750).
 
-/** Logical canvas width in pixels (landscape). */
-export const CANVAS_W = 844
+/** Logical canvas width in pixels (landscape — same as portrait width). */
+export const CANVAS_W = 390
 /** Logical canvas height in pixels (landscape). */
 export const CANVAS_H = 390
 
-// Portrait orientation: 390 × 750 matches a standard phone held upright.
-// Note: CANVAS_W_PORTRAIT === CANVAS_H — both equal 390, the 7-column width.
+// Portrait orientation: same width, taller canvas to use the extra vertical space.
 
 /** Logical canvas width in pixels (portrait). */
 export const CANVAS_W_PORTRAIT = 390
