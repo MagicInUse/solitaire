@@ -110,6 +110,7 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
                   draggable={card.faceUp}
                   scale={scale}
                   onDoubleClick={onDoubleClick}
+                  dealDelay={(colIndex + i) * 0.03}
                 />
               )}
             </div>

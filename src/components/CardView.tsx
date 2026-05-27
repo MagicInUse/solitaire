@@ -1,9 +1,13 @@
 import { useRef } from "react"
+import { motion } from "framer-motion"
 import { useDraggable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import type { Card } from "../types/cards"
 import { CardFace } from "./CardFace"
 import { CARD_W, CARD_H } from "../constants/canvas"
+import { useOptionsStore } from "../store/useOptionsStore"
+import { useGameStore } from "../store/useGameStore"
+import { recentlyDropped } from "../utils/dragTracking"
 
 /** Props for {@link CardView}. */
 interface CardViewProps {
@@ -29,6 +33,12 @@ interface CardViewProps {
   scale: number
   /** Called when the user double-clicks a face-up top card. */
   onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
+  /**
+   * Staggered entrance delay in seconds for the deal animation.
+   * Passed by the parent based on column + card index.
+   * @defaultValue 0
+   */
+  dealDelay?: number
 }
 
 /**
@@ -41,8 +51,10 @@ interface CardViewProps {
  * While dragging, the original card becomes invisible (opacity 0); the
  * visible clone is rendered by `DragOverlay` via {@link DragStack}.
  */
-export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick }: CardViewProps) {
+export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick, dealDelay = 0 }: CardViewProps) {
   const lastTapRef = useRef<number>(0)
+  const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
+  const isDealing = useGameStore((s) => s.isDealing)
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
@@ -70,19 +82,31 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
     }
   }
 
+  // layoutId enables shared-element transitions for programmatic moves (double-click).
+  // Disabled during drag, during deal, and for one frame after a drop (recentlyDropped)
+  // to prevent Framer Motion from re-animating the card's pre-drag position → new position,
+  // which would double-play the drag movement the user just performed.
+  const layoutId = animationsEnabled && !isDragging && !isDealing && !recentlyDropped.has(card.id) ? card.id : undefined
+
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
       onDoubleClick={onDoubleClick ? () => onDoubleClick(card, cardIndex, sourceType, sourceIndex) : undefined}
       onTouchEnd={onDoubleClick ? handleTouchEnd : undefined}
+      layoutId={layoutId}
+      initial={animationsEnabled && isDealing ? { opacity: 0, y: -10 } : false}
+      animate={{ opacity: isDragging ? 0 : 1, y: 0 }}
+      transition={isDealing
+        ? { delay: dealDelay, duration: 0.18, ease: 'easeOut' }
+        : { duration: 0.15, ease: 'easeOut' }
+      }
       style={{
         width: CARD_W,
         height: CARD_H,
-        transform: CSS.Translate.toString(scaledTransform),
-        // DragOverlay renders the visible clone; hide the in-place element.
-        opacity: isDragging ? 0 : 1,
+        // Only apply dnd-kit transform while dragging; let Framer Motion handle layout otherwise
+        ...(scaledTransform ? { transform: CSS.Translate.toString(scaledTransform) } : {}),
         touchAction: "none",
         userSelect: "none",
         cursor: card.faceUp && draggable ? "grab" : "default",
@@ -90,6 +114,6 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
       }}
     >
       <CardFace card={card} />
-    </div>
+    </motion.div>
   )
 }

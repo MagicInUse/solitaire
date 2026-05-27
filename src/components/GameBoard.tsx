@@ -11,7 +11,8 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
-import { useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { LayoutGroup, motion } from "framer-motion"
 import type { Card, Suit } from "../types/cards"
 import vqLogo from '../assets/veriquery-logo.png'
 import { useGameStore }    from "../store/useGameStore"
@@ -22,8 +23,10 @@ import { TableauColumn }   from "./TableauColumn"
 import type { DragSourceInfo } from "./TableauColumn"
 import { Foundation }  from "./Foundation"
 import { CardView }    from "./CardView"
+import { recentlyDropped } from "../utils/dragTracking"
 import { DragStack }   from "./DragStack"
 import { GameCanvas }  from "./GameCanvas"
+import { WinCascade }  from "./WinCascade"
 
 
 // ─── Klondike move validation ──────────────────────────────────────────────
@@ -76,9 +79,12 @@ export function GameBoard() {
   const {
     stock, waste, foundations, tableau,
     drawFromStock, resetStock, moveCards, flipTableauTop,
+    won, isDealing, setDealing, dealId,
   } = useGameStore()
+  const drawId = useGameStore((s) => s.drawId)
 
   const { deckLocation, stockRecycles, drawMode, cardBackId } = useOptionsStore()
+  const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
   const recycleCount = useGameStore((s) => s.recycleCount)
   const back = getCardBack(cardBackId)
 
@@ -88,10 +94,32 @@ export function GameBoard() {
   // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
   const dragSourceInfoRef = useRef<(DragSourceInfo & { cards: Card[] }) | null>(null)
 
+  // Waste fan animation tracking refs
+  const prevDrawIdRef       = useRef(drawId)
+  const prevVisibleIdsRef   = useRef(new Set<string>())
+  const isFirstRenderRef    = useRef(true)
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 100, tolerance: 5 } }),
   )
+
+  // Clear isDealing flag after the staggered deal animation completes.
+  // 28 cards × 0.03s stagger + 0.18s card duration ≈ 1.02s total.
+  useEffect(() => {
+    if (!isDealing) return
+    const id = setTimeout(() => setDealing(false), 1100)
+    return () => clearTimeout(id)
+  }, [dealId, isDealing, setDealing])
+
+  // Update waste fan tracking refs after each commit so the next render can
+  // detect whether drawId changed (new draw) vs waste shrank (card played).
+  useLayoutEffect(() => {
+    isFirstRenderRef.current = false
+    prevDrawIdRef.current = drawId
+    const count = drawMode === 1 ? Math.min(1, waste.length) : Math.min(3, waste.length)
+    prevVisibleIdsRef.current = new Set(waste.slice(-count).map(c => c.id))
+  })
 
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current as {
@@ -177,6 +205,11 @@ export function GameBoard() {
       toType: dest.toType,
       toIndex: dest.toIndex,
     })
+
+    // Mark all dragged cards so their layoutId is skipped for one render,
+    // preventing Framer Motion from replaying the drag movement as a second animation.
+    for (const c of snapshot.cards) recentlyDropped.add(c.id)
+    requestAnimationFrame(() => { for (const c of snapshot.cards) recentlyDropped.delete(c.id) })
 
     if (snapshot.sourceType === "tableau" && snapshot.sourceIndex !== undefined) {
       flipTableauTop(snapshot.sourceIndex)
@@ -279,6 +312,13 @@ export function GameBoard() {
   const visibleWasteCount = drawMode === 1 ? Math.min(1, waste.length) : Math.min(3, waste.length)
   const wasteContainerW = visibleWasteCount <= 1 ? 48 : 48 + (visibleWasteCount - 1) * FAN_OFFSET
 
+  // Detect whether this render is caused by a fresh draw vs a card being played.
+  // Guard against drag re-renders: MeasuringStrategy.Always re-renders on every
+  // pointer move, which can re-fire entrance animations spuriously.
+  const isDraggingNow = dragSourceInfo !== null
+  const wasNewDraw    = !isFirstRenderRef.current && !isDraggingNow && drawId !== prevDrawIdRef.current
+  const prevVisibleIds = prevVisibleIdsRef.current
+
   const wasteEl = (
     <div
       key="waste"
@@ -286,22 +326,61 @@ export function GameBoard() {
       style={{ width: wasteContainerW }}
     >
       {waste.slice(-visibleWasteCount).map((card, i) => {
-        const cardIdx = waste.length - visibleWasteCount + i
-        const isTop   = i === visibleWasteCount - 1
+        const cardIdx  = waste.length - visibleWasteCount + i
+        const isTop    = i === visibleWasteCount - 1
+        const fanX     = i * FAN_OFFSET
+        const isNewCard = !isFirstRenderRef.current && !isDraggingNow && !prevVisibleIds.has(card.id)
+
+        // Outer div owns the absolute position via CSS `left`.
+        // CSS `transition` smoothly shifts existing cards right when the top card is played.
+        // Framer Motion (inner motion.div) handles entrance animation only:
+        //   slap  — cards enter stacked (x offset = -fanX), pop from above, then fan out
+        //   reveal — newly uncovered card fades/slides in from the left
+        // Once settled, animate is always { x:0, y:0, scale:1, opacity:1 } so Framer Motion
+        // has nothing to re-animate on drag re-renders, eliminating the spam.
+        const initial = (() => {
+          if (!animationsEnabled || !isNewCard) return false
+          if (wasNewDraw) return { x: -fanX, y: -12, scale: 0.92 }
+          return { opacity: 0 }
+        })()
+
+        const transition = (() => {
+          if (!animationsEnabled || !isNewCard) return { duration: 0 }
+          if (wasNewDraw) return {
+            y:     { duration: 0.10, ease: 'easeOut' },
+            scale: { duration: 0.10, ease: 'easeOut' },
+            x:     { delay: 0.15, duration: 0.20, ease: 'easeOut' },
+          }
+          return { opacity: { duration: 0.18, ease: 'easeOut' } }
+        })()
+
         return (
           <div
             key={card.id}
             className="absolute top-0"
-            style={{ left: i * FAN_OFFSET, zIndex: i + 1 }}
+            style={{
+              left: fanX,
+              zIndex: i + 1,
+              // Enable CSS left-slide only when not dragging and not mid-slap
+              transition: animationsEnabled && !isDraggingNow && !wasNewDraw
+                ? 'left 220ms ease-out'
+                : 'none',
+            }}
           >
-            <CardView
-              card={card}
-              cardIndex={cardIdx}
-              sourceType="waste"
-              scale={scale}
-              draggable={isTop}
-              onDoubleClick={isTop ? handleDoubleClick : undefined}
-            />
+            <motion.div
+              initial={initial}
+              animate={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+              transition={transition}
+            >
+              <CardView
+                card={card}
+                cardIndex={cardIdx}
+                sourceType="waste"
+                scale={scale}
+                draggable={isTop}
+                onDoubleClick={isTop ? handleDoubleClick : undefined}
+              />
+            </motion.div>
           </div>
         )
       })}
@@ -331,8 +410,9 @@ export function GameBoard() {
       : [...foundationEls, spacer, wasteEl, stockEl]
 
   return (
-    // DndContext is OUTSIDE GameCanvas so all dnd-kit coordinate math happens
-    // in screen space, not inside the CSS transform: scale() container.
+    <LayoutGroup id="board">
+    {/* DndContext is OUTSIDE GameCanvas so all dnd-kit coordinate math happens
+        in screen space, not inside the CSS transform: scale() container. */}
     <DndContext
       sensors={sensors}
       collisionDetection={pointerWithin}
@@ -373,9 +453,11 @@ export function GameBoard() {
       {/* DragOverlay is portalled to document.body (screen space).
           DndContext being outside the scaled canvas means pointer deltas
           and overlay positioning are all in the same coordinate space. */}
-      <DragOverlay dropAnimation={{ duration: 180, easing: "ease" }}>
+      <DragOverlay dropAnimation={null}>
         {dragSourceInfo && <DragStack cards={dragSourceInfo.cards} scale={scale} />}
       </DragOverlay>
     </DndContext>
+    <WinCascade active={won} foundations={foundations} />
+  </LayoutGroup>
   )
 }

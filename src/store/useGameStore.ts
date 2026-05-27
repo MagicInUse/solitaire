@@ -121,6 +121,12 @@ interface GameStore {
   history: GameStateSnapshot[]
   /** Currently highlighted hint move; null when no hint is active. */
   activeHint: Hint | null
+  /** True while the deal-in animation is playing after a new game. */
+  isDealing: boolean
+  /** Incremented on each newGame() so CardViews can detect a fresh deal. */
+  dealId: number
+  /** Incremented on each drawFromStock() so the waste fan can animate the new batch. */
+  drawId: number
 
   // ── Actions ──────────────────────────────────────────────────────────────
   /** Start a fresh game with a new shuffled deal. */
@@ -150,6 +156,8 @@ interface GameStore {
   undo: () => void
   /** Set or clear the active hint highlight. */
   setActiveHint: (hint: Hint | null) => void
+  /** Clears the isDealing flag (called by GameBoard after the deal animation). */
+  setDealing: (v: boolean) => void
 }
 
 // ─── Store implementation ─────────────────────────────────────────────────────
@@ -175,6 +183,9 @@ export const useGameStore = create<GameStore>()(
       // ── Transient defaults (populated in memory only) ───────────────────
       history: [],
       activeHint: null,
+      isDealing: false,
+      dealId: 0,
+      drawId: 0,
 
       // ── Actions ─────────────────────────────────────────────────────────
 
@@ -187,6 +198,8 @@ export const useGameStore = create<GameStore>()(
           recycleCount: 0,
           history: [],
           activeHint: null,
+          isDealing: true,
+          dealId: get().dealId + 1,
         })
       },
 
@@ -206,6 +219,7 @@ export const useGameStore = create<GameStore>()(
         set({
           stock: newStock,
           waste: [...state.waste, ...drawn],
+          drawId: get().drawId + 1,
           history: [...state.history, snapshot(state)].slice(-MAX_HISTORY),
           activeHint: null,
         })
@@ -290,12 +304,16 @@ export const useGameStore = create<GameStore>()(
       setActiveHint(hint) {
         set({ activeHint: hint })
       },
+
+      setDealing(v: boolean) {
+        set({ isDealing: v })
+      },
     }),
     {
       name: 'solitaire-game',
       version: 3,
       // Exclude transient state from localStorage
-      partialize: ({ history: _h, activeHint: _a, ...persisted }) => persisted,
+      partialize: ({ history: _h, activeHint: _a, isDealing: _d, dealId: _id, drawId: _did, setDealing: _sd, ...persisted }) => persisted,
     }
   )
 )
