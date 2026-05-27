@@ -1,5 +1,6 @@
 import { useDroppable } from '@dnd-kit/core'
 import { CardView } from './CardView'
+import { CardFace } from './CardFace'
 import { CARD_W, CARD_H } from '../constants/canvas'
 import { computeColumnOffsets } from '../utils/layout'
 import type { Card, Pile } from '../types/cards'
@@ -17,9 +18,10 @@ interface TableauColumnProps {
   dragSourceInfo: DragSourceInfo | null
   scale: number
   onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
+  previewCards?: Card[]
 }
 
-export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleClick }: TableauColumnProps) {
+export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleClick, previewCards }: TableauColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `tableau-${colIndex}`,
     data: { toType: 'tableau', toIndex: colIndex },
@@ -37,11 +39,17 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleC
           0
         ) + CARD_H
 
+  // Base top for preview stack — sum of ALL pile card offsets (placed after last real card)
+  const previewBaseTop = pile.reduce((sum, c) => sum + (c.faceUp ? fuOffset : fdOffset), 0)
+  const totalHeight = previewCards?.length
+    ? previewBaseTop + (previewCards.length - 1) * fuOffset + CARD_H
+    : colHeight
+
   return (
     <div
       ref={setNodeRef}
       className={`${styles.column} ${isOver ? styles.over : ''}`}
-      style={{ width: CARD_W, height: colHeight }}
+      style={{ width: CARD_W, height: totalHeight }}
     >
       {pile.length === 0 ? (
         <div className={styles.emptySlot} />
@@ -77,6 +85,15 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleC
           )
         })
       )}
+      {previewCards?.map((card, j) => (
+        <div
+          key={`preview-${card.id}`}
+          className={styles.previewCard}
+          style={{ position: 'absolute', top: previewBaseTop + j * fuOffset, left: 0, zIndex: pile.length + j }}
+        >
+          <CardFace card={card} />
+        </div>
+      ))}
     </div>
   )
 }

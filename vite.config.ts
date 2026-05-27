@@ -7,16 +7,24 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'Solitaire',
+        name: 'Solitaire by MagicApps',
         short_name: 'Solitaire',
-        description: 'Offline-first Klondike Solitaire',
-        theme_color: '#1a6b3a',
-        background_color: '#1a6b3a',
+        description: 'Offline-first Klondike Solitaire by MagicApps',
+        theme_color: '#1d1e2c',
+        background_color: '#1d1e2c',
         display: 'standalone',
         orientation: 'landscape',
+        start_url: '/',
+        scope: '/',
+        id: 'magicapps-solitaire',
         icons: [
+          {
+            src: 'pwa-64x64.png',
+            sizes: '64x64',
+            type: 'image/png',
+          },
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
@@ -28,10 +36,10 @@ export default defineConfig({
             type: 'image/png',
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'maskable-icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable',
+            purpose: 'maskable',
           },
         ],
       },

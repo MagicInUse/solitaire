@@ -24,3 +24,13 @@
   border: 2px dashed rgba(255, 255, 255, 0.45);
   background: rgba(255, 255, 255, 0.06);
 }
+
+/* Preview card(s) shown at hover target during drag — indicates a valid drop */
+.previewCard {
+  width: 48px;
+  height: 67px;
+  opacity: 0.55;
+  pointer-events: none;
+  border-radius: 5px;
+  overflow: hidden;
+}

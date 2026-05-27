@@ -1,6 +1,7 @@
 import { useDroppable } from "@dnd-kit/core"
 import { CardView } from "./CardView"
-import type { Pile } from "../types/cards"
+import { CardFace } from "./CardFace"
+import type { Card, Pile } from "../types/cards"
 import type { DragSourceInfo } from "./TableauColumn"
 import styles from "./Foundation.module.css"
 
@@ -11,9 +12,10 @@ interface FoundationProps {
   pile: Pile
   dragSourceInfo: DragSourceInfo | null
   scale: number
+  previewCard?: Card
 }
 
-export function Foundation({ index, pile, dragSourceInfo, scale }: FoundationProps) {
+export function Foundation({ index, pile, dragSourceInfo, scale, previewCard }: FoundationProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `foundation-${index}`,
     data: { toType: "foundation", toIndex: index },
@@ -41,6 +43,11 @@ export function Foundation({ index, pile, dragSourceInfo, scale }: FoundationPro
         />
       ) : (
         <div className={styles.empty}>{SUIT_SYMBOLS[index]}</div>
+      )}
+      {previewCard && (
+        <div className={styles.preview}>
+          <CardFace card={previewCard} />
+        </div>
       )}
     </div>
   )

@@ -8,9 +8,10 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { Card, Suit } from "../types/cards"
 import vqLogo from '../assets/veriquery-logo.png'
 import { useGameStore } from "../store/useGameStore"
@@ -61,6 +62,9 @@ export function GameBoard() {
 
   const scale = useGameScale()
   const [dragSourceInfo, setDragSourceInfo] = useState<DragSourceInfo & { cards: Card[] } | null>(null)
+  const [dragOverInfo, setDragOverInfo] = useState<{ toType: "tableau" | "foundation"; toIndex: number } | null>(null)
+  // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
+  const dragSourceInfoRef = useRef<(DragSourceInfo & { cards: Card[] }) | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
@@ -84,12 +88,35 @@ export function GameBoard() {
       cards = [waste[data.cardIndex]]
     }
 
-    setDragSourceInfo({
+    const info = {
       sourceType: data.sourceType,
       sourceIndex: data.sourceIndex,
       cardIndex: data.cardIndex,
       cards,
-    })
+    }
+    dragSourceInfoRef.current = info
+    setDragSourceInfo(info)
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    const sourceInfo = dragSourceInfoRef.current
+    const { over } = event
+    if (!sourceInfo || !over) { setDragOverInfo(null); return }
+    const dest = over.data.current as { toType: "tableau" | "foundation"; toIndex: number } | null
+    if (!dest?.toType || dest.toIndex == null) { setDragOverInfo(null); return }
+    if (sourceInfo.sourceType === dest.toType && sourceInfo.sourceIndex === dest.toIndex) {
+      setDragOverInfo(null); return
+    }
+    const destPile = dest.toType === 'tableau' ? tableau[dest.toIndex] : foundations[dest.toIndex]
+    if (!destPile || !canMoveCards(sourceInfo.cards, destPile, dest.toType)) {
+      setDragOverInfo(null); return
+    }
+    // Functional updater: skip re-render when the hovered target hasn't changed
+    setDragOverInfo(prev =>
+      prev?.toType === dest.toType && prev?.toIndex === dest.toIndex
+        ? prev
+        : { toType: dest.toType, toIndex: dest.toIndex }
+    )
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -97,7 +124,9 @@ export function GameBoard() {
     // truth for the drag source. active.data.current can be stale/null because
     // the dragged CardView unmounts mid-drag (replaced by its ghost outline).
     const snapshot = dragSourceInfo
+    dragSourceInfoRef.current = null
     setDragSourceInfo(null)
+    setDragOverInfo(null)
 
     const { over } = event
     if (!over || !snapshot) return
@@ -176,6 +205,7 @@ export function GameBoard() {
       sensors={sensors}
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
     >
@@ -214,6 +244,7 @@ export function GameBoard() {
                 pile={pile}
                 dragSourceInfo={dragSourceInfo}
                 scale={scale}
+                previewCard={dragOverInfo?.toType === 'foundation' && dragOverInfo.toIndex === i ? dragSourceInfo?.cards[0] : undefined}
               />
             ))}
           </div>
@@ -228,6 +259,7 @@ export function GameBoard() {
                 dragSourceInfo={dragSourceInfo}
                 scale={scale}
                 onDoubleClick={handleDoubleClick}
+                previewCards={dragOverInfo?.toType === 'tableau' && dragOverInfo.toIndex === i ? dragSourceInfo?.cards : undefined}
               />
             ))}
           </div>
