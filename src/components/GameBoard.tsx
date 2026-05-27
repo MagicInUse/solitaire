@@ -132,6 +132,41 @@ export function GameBoard() {
     }
   }
 
+  function handleDoubleClick(
+    card: Card,
+    cardIndex: number,
+    sourceType: "waste" | "tableau" | "foundation",
+    sourceIndex?: number
+  ) {
+    if (!card.faceUp) return
+
+    // Resolve source pile to guard against non-top-card double-clicks
+    const sourcePile =
+      sourceType === 'tableau' && sourceIndex !== undefined
+        ? tableau[sourceIndex]
+        : sourceType === 'foundation' && sourceIndex !== undefined
+          ? foundations[sourceIndex]
+          : waste
+    if (cardIndex !== sourcePile.length - 1) return
+
+    // Try each foundation in order — only one will ever match for a given suit
+    for (let i = 0; i < 4; i++) {
+      if (canMoveCards([card], foundations[i], 'foundation')) {
+        moveCards({
+          fromType: sourceType,
+          fromIndex: sourceIndex,
+          cardIndex,
+          toType: 'foundation',
+          toIndex: i,
+        })
+        if (sourceType === 'tableau' && sourceIndex !== undefined) {
+          flipTableauTop(sourceIndex)
+        }
+        return
+      }
+    }
+  }
+
   const topWaste = waste[waste.length - 1]
 
   return (
@@ -165,6 +200,7 @@ export function GameBoard() {
                   cardIndex={waste.length - 1}
                   sourceType="waste"
                   scale={scale}
+                  onDoubleClick={handleDoubleClick}
                 />
               )}
             </div>
@@ -191,6 +227,7 @@ export function GameBoard() {
                 pile={pile}
                 dragSourceInfo={dragSourceInfo}
                 scale={scale}
+                onDoubleClick={handleDoubleClick}
               />
             ))}
           </div>

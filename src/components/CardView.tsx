@@ -12,9 +12,10 @@ interface CardViewProps {
   draggable?: boolean
   /** Canvas scale — divides the screen-pixel drag delta so in-canvas movement is correct. */
   scale: number
+  onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
 }
 
-export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale }: CardViewProps) {
+export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick }: CardViewProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
     disabled: !draggable || !card.faceUp,
@@ -33,6 +34,7 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      onDoubleClick={onDoubleClick ? () => onDoubleClick(card, cardIndex, sourceType, sourceIndex) : undefined}
       style={{
         width: CARD_W,
         height: CARD_H,

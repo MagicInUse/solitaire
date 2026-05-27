@@ -2,7 +2,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { CardView } from './CardView'
 import { CARD_W, CARD_H } from '../constants/canvas'
 import { computeColumnOffsets } from '../utils/layout'
-import type { Pile } from '../types/cards'
+import type { Card, Pile } from '../types/cards'
 import styles from './TableauColumn.module.css'
 
 export interface DragSourceInfo {
@@ -16,9 +16,10 @@ interface TableauColumnProps {
   pile: Pile
   dragSourceInfo: DragSourceInfo | null
   scale: number
+  onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
 }
 
-export function TableauColumn({ colIndex, pile, dragSourceInfo, scale }: TableauColumnProps) {
+export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, onDoubleClick }: TableauColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `tableau-${colIndex}`,
     data: { toType: 'tableau', toIndex: colIndex },
@@ -69,6 +70,7 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale }: Tableau
                   sourceIndex={colIndex}
                   draggable={card.faceUp}
                   scale={scale}
+                  onDoubleClick={onDoubleClick}
                 />
               )}
             </div>
