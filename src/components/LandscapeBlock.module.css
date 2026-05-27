@@ -1,0 +1,80 @@
+.overlay {
+  /* Hidden by default; shown only in landscape */
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+
+  /* Darker felt for the overlay — same texture family as the canvas */
+  background-color: #0a2e14;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.14) 0px,
+      rgba(0, 0, 0, 0.14) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0, 0, 0, 0.14) 0px,
+      rgba(0, 0, 0, 0.14) 1px,
+      transparent 1px,
+      transparent 8px
+    );
+  background-size: 8px 8px;
+}
+
+@media (orientation: portrait) {
+  .overlay {
+    display: flex;
+  }
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+/* Simple phone silhouette drawn entirely in CSS */
+.phoneIcon {
+  width: 36px;
+  height: 58px;
+  border: 3px solid rgba(255, 255, 255, 0.7);
+  border-radius: 7px;
+  position: relative;
+  animation: rotateHint 2.4s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.phoneIcon::before {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+@keyframes rotateHint {
+  0%,  35% { transform: rotate(0deg); }
+  65%, 100% { transform: rotate(-90deg); }
+}
+
+.label {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 17px;
+  font-family: system-ui, sans-serif;
+  font-weight: 500;
+  text-align: center;
+  letter-spacing: 0.01em;
+}

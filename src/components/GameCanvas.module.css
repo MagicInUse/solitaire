@@ -1,0 +1,42 @@
+/* Full-viewport shell — centers the canvas, shows felt in letterbox areas */
+.wrap {
+  width: 100vw;
+  height: 100svh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+/* Fixed-size logical game surface — everything inside is in canvas px */
+.canvas {
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+
+  /* Game table felt — brighter green, subtle diagonal weave */
+  background-color: #1a6b3a;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.035) 0px,
+      rgba(0, 0, 0, 0.035) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  background-size: 8px 8px, 8px 8px, 4px 4px;
+}

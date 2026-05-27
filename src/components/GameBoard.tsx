@@ -1,0 +1,210 @@
+import {
+  DndContext,
+  DragOverlay,
+  MeasuringStrategy,
+  PointerSensor,
+  TouchSensor,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core"
+import { useState } from "react"
+import type { Card, Suit } from "../types/cards"
+import vqLogo from '../assets/veriquery-logo.png'
+import { useGameStore } from "../store/useGameStore"
+import { useGameScale } from "../hooks/useGameScale"
+import { TableauColumn } from "./TableauColumn"
+import type { DragSourceInfo } from "./TableauColumn"
+import { Foundation } from "./Foundation"
+import { CardView } from "./CardView"
+import { DragStack } from "./DragStack"
+import { GameCanvas } from "./GameCanvas"
+import styles from "./GameBoard.module.css"
+
+// ─── Klondike move validation ──────────────────────────────────────────────
+
+function isRed(suit: Suit) {
+  return suit === 'hearts' || suit === 'diamonds'
+}
+
+function canMoveCards(
+  movingCards: Card[],
+  destPile: Card[],
+  toType: 'tableau' | 'foundation'
+): boolean {
+  if (movingCards.length === 0) return false
+  if (!movingCards[0].faceUp) return false
+
+  if (toType === 'foundation') {
+    if (movingCards.length !== 1) return false
+    const card = movingCards[0]
+    if (destPile.length === 0) return card.rank === 1
+    const top = destPile[destPile.length - 1]
+    return card.suit === top.suit && card.rank === top.rank + 1
+  }
+
+  // tableau
+  const bottom = movingCards[0] // bottom of the moving stack (lowest rank)
+  if (destPile.length === 0) return bottom.rank === 13
+  const top = destPile[destPile.length - 1]
+  if (!top.faceUp) return false
+  return bottom.rank === top.rank - 1 && isRed(bottom.suit) !== isRed(top.suit)
+}
+
+export function GameBoard() {
+  const {
+    stock, waste, foundations, tableau,
+    drawFromStock, resetStock, moveCards, flipTableauTop, newGame,
+  } = useGameStore()
+
+  const scale = useGameScale()
+  const [dragSourceInfo, setDragSourceInfo] = useState<DragSourceInfo & { cards: Card[] } | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 100, tolerance: 5 } }),
+  )
+
+  function handleDragStart(event: DragStartEvent) {
+    const data = event.active.data.current as {
+      card: Card
+      cardIndex: number
+      sourceType: "waste" | "tableau" | "foundation"
+      sourceIndex?: number
+    }
+
+    let cards: Card[]
+    if (data.sourceType === "tableau" && data.sourceIndex !== undefined) {
+      cards = tableau[data.sourceIndex].slice(data.cardIndex)
+    } else if (data.sourceType === "foundation" && data.sourceIndex !== undefined) {
+      cards = [foundations[data.sourceIndex][data.cardIndex]]
+    } else {
+      cards = [waste[data.cardIndex]]
+    }
+
+    setDragSourceInfo({
+      sourceType: data.sourceType,
+      sourceIndex: data.sourceIndex,
+      cardIndex: data.cardIndex,
+      cards,
+    })
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    // Capture snapshot BEFORE clearing — this is the only reliable source of
+    // truth for the drag source. active.data.current can be stale/null because
+    // the dragged CardView unmounts mid-drag (replaced by its ghost outline).
+    const snapshot = dragSourceInfo
+    setDragSourceInfo(null)
+
+    const { over } = event
+    if (!over || !snapshot) return
+
+    const dest = over.data.current as {
+      toType: "tableau" | "foundation"
+      toIndex: number
+    } | null
+    if (!dest?.toType || dest.toIndex == null) return
+
+    // Prevent dropping a card onto the same pile it came from
+    if (snapshot.sourceType === dest.toType && snapshot.sourceIndex === dest.toIndex) return
+
+    // Klondike validation
+    const destPile =
+      dest.toType === 'tableau'
+        ? tableau[dest.toIndex]
+        : foundations[dest.toIndex]
+    if (!destPile) return
+    if (!canMoveCards(snapshot.cards, destPile, dest.toType)) return
+
+    moveCards({
+      fromType: snapshot.sourceType as "waste" | "tableau" | "foundation",
+      fromIndex: snapshot.sourceIndex,
+      cardIndex: snapshot.cardIndex,
+      toType: dest.toType,
+      toIndex: dest.toIndex,
+    })
+
+    if (snapshot.sourceType === "tableau" && snapshot.sourceIndex !== undefined) {
+      flipTableauTop(snapshot.sourceIndex)
+    }
+  }
+
+  const topWaste = waste[waste.length - 1]
+
+  return (
+    // DndContext is OUTSIDE GameCanvas so all dnd-kit coordinate math happens
+    // in screen space, not inside the CSS transform: scale() container.
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+    >
+      <GameCanvas>
+        <div className={styles.board}>
+          {/* Top row: Stock / Waste / gap / Foundations */}
+          <div className={styles.topRow}>
+            <div
+              className={styles.stockPile}
+              onClick={stock.length > 0 ? drawFromStock : resetStock}
+              title={stock.length > 0 ? "Draw" : "Reset stock"}
+            >
+              {stock.length > 0
+                ? <div className={styles.stockBack}><img src={vqLogo} className={styles.stockBackLogo} alt="" draggable={false} /></div>
+                : <div className={styles.stockEmpty}>&#x21BA;</div>}
+            </div>
+
+            <div className={styles.wastePile}>
+              {topWaste && (
+                <CardView
+                  card={topWaste}
+                  cardIndex={waste.length - 1}
+                  sourceType="waste"
+                  scale={scale}
+                />
+              )}
+            </div>
+
+            <div className={styles.spacer} />
+
+            {foundations.map((pile, i) => (
+              <Foundation
+                key={i}
+                index={i}
+                pile={pile}
+                dragSourceInfo={dragSourceInfo}
+                scale={scale}
+              />
+            ))}
+          </div>
+
+          {/* Tableau */}
+          <div className={styles.tableau}>
+            {tableau.map((pile, i) => (
+              <TableauColumn
+                key={i}
+                colIndex={i}
+                pile={pile}
+                dragSourceInfo={dragSourceInfo}
+                scale={scale}
+              />
+            ))}
+          </div>
+        </div>
+      </GameCanvas>
+
+      <button className={styles.newGame} onClick={newGame}>New Game</button>
+
+      {/* DragOverlay is portalled to document.body (screen space).
+          DndContext being outside the scaled canvas means pointer deltas
+          and overlay positioning are all in the same coordinate space. */}
+      <DragOverlay dropAnimation={{ duration: 180, easing: "ease" }}>
+        {dragSourceInfo && <DragStack cards={dragSourceInfo.cards} scale={scale} />}
+      </DragOverlay>
+    </DndContext>
+  )
+}

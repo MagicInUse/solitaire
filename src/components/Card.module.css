@@ -1,0 +1,79 @@
+/* CardFace — purely visual, 100% of its parent (CardView sets the size) */
+.card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* ─── Face-down (VeriQuery themed) ──────────────────────────────────────── */
+.faceDown {
+  background: #1d1e2c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Platinum interior fill */
+.faceDown::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: #e9e9e9;
+  border-radius: 2px;
+  z-index: 0;
+}
+
+/* Plum border sitting on top of the platinum fill */
+.faceDown::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(156, 82, 139, 0.75);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* White logo centered on the card back */
+.backLogo {
+  width: 20px;
+  height: auto;
+  opacity: 0.9;
+  position: relative;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* ─── Face-up ────────────────────────────────────────────────────────────── */
+.faceUp {
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.red   { color: #c0392b; }
+.black { color: #1a1a1a; }
+
+/* ─── Labels ─────────────────────────────────────────────────────────────── */
+.cornerTop,
+.cornerBottom {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-family: Georgia, serif;
+}
+
+.cornerTop    { top: 3px;    left: 4px; }
+.cornerBottom { bottom: 3px; right: 4px; transform: rotate(180deg); }
+
+.center {
+  font-size: 22px;
+  line-height: 1;
+}
