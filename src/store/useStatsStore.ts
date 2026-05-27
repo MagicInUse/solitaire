@@ -1,0 +1,80 @@
+/**
+ * @module useStatsStore
+ * Persisted Zustand store for lifetime player statistics and leaderboard data.
+ *
+ * Stored in `localStorage` under `"solitaire-stats"` (v1).
+ */
+
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import type { GameStats, LeaderboardEntry } from '../types/stats'
+import { INITIAL_STATS } from '../types/stats'
+
+const MAX_LEADERBOARD_ENTRIES = 100
+
+interface StatsStore extends GameStats {
+  /** Call at the start of every new game (increments gamesPlayed). */
+  recordGameStarted: () => void
+  /**
+   * Call when the player wins. Saves the entry, updates aggregate stats,
+   * and keeps the leaderboard sorted by score (desc) within the cap.
+   */
+  recordWin: (entry: Omit<LeaderboardEntry, 'id' | 'date'>) => void
+  /** Call when a new game starts mid-game (resets the win streak). */
+  recordLoss: () => void
+  /** Wipes all stats and leaderboard entries. */
+  clearStats: () => void
+}
+
+export const useStatsStore = create<StatsStore>()(
+  persist(
+    (set) => ({
+      ...INITIAL_STATS,
+
+      recordGameStarted() {
+        set((s) => ({ gamesPlayed: s.gamesPlayed + 1 }))
+      },
+
+      recordWin(entry) {
+        set((s) => {
+          const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+          const date = new Date().toISOString()
+          const newEntry: LeaderboardEntry = { ...entry, id, date }
+
+          const leaderboard = [...s.leaderboard, newEntry]
+            .sort((a, b) => b.score - a.score)
+            .slice(0, MAX_LEADERBOARD_ENTRIES)
+
+          const newStreak = s.currentStreak + 1
+
+          return {
+            gamesWon: s.gamesWon + 1,
+            currentStreak: newStreak,
+            bestStreak: Math.max(s.bestStreak, newStreak),
+            bestTimeSeconds:
+              s.bestTimeSeconds === null
+                ? entry.timeSeconds
+                : Math.min(s.bestTimeSeconds, entry.timeSeconds),
+            bestScore:
+              s.bestScore === null
+                ? entry.score
+                : Math.max(s.bestScore, entry.score),
+            leaderboard,
+          }
+        })
+      },
+
+      recordLoss() {
+        set({ currentStreak: 0 })
+      },
+
+      clearStats() {
+        set(INITIAL_STATS)
+      },
+    }),
+    {
+      name: 'solitaire-stats',
+      version: 1,
+    }
+  )
+)

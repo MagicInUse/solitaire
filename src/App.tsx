@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { GameBoard } from './components/GameBoard'
+import { GameBoard }   from './components/GameBoard'
+import { MenuButton }  from './components/menu/MenuButton'
+import { MenuModal }   from './components/menu/MenuModal'
 
 /**
  * Shown when a new service worker is waiting to activate.
@@ -51,9 +54,13 @@ function UpdateBanner() {
 }
 
 export default function App() {
+  const [menuOpen, setMenuOpen] = useState(false)
+
   return (
     <>
       <GameBoard />
+      <MenuButton onClick={() => setMenuOpen(true)} />
+      <MenuModal open={menuOpen} onClose={() => setMenuOpen(false)} />
       <UpdateBanner />
     </>
   )

@@ -33,3 +33,23 @@ export interface GameState {
   /** Seven tableau columns. */
   tableau: [Pile, Pile, Pile, Pile, Pile, Pile, Pile]
 }
+
+/**
+ * A point-in-time snapshot of the board piles used for the undo history.
+ * Intentionally the same shape as {@link GameState} — treated as a
+ * semantic alias so the type system won't conflate the two usages.
+ */
+export type GameStateSnapshot = Readonly<GameState>
+
+/**
+ * Describes a valid move the hint system has identified for the player.
+ * Stored as `activeHint` in the game store; GameBoard uses it to highlight
+ * the source card and valid target.
+ */
+export interface Hint {
+  fromType: 'waste' | 'tableau' | 'foundation'
+  fromIndex?: number
+  cardIndex: number
+  toType: 'tableau' | 'foundation'
+  toIndex: number
+}
