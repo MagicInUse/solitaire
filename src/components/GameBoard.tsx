@@ -80,7 +80,7 @@ function canMoveCards(
  * - Handles double-click auto-move to foundations.
  * - Renders the `DragOverlay` via {@link DragStack} for the floating clone.
  */
-export function GameBoard() {
+export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const {
     stock, waste, foundations, tableau,
     drawFromStock, resetStock, moveCards, flipTableauTop, newGame,
@@ -224,6 +224,7 @@ export function GameBoard() {
     const score = scoringMode === 'vegas' ? vegasProfit : standardScore
     recordWin({
       drawMode: drawMode as 1 | 3,
+      scoringMode: scoringMode === 'vegas' ? 'vegas' : 'standard',
       timeSeconds: elapsed,
       moves: moveCount,
       score,
@@ -633,6 +634,10 @@ export function GameBoard() {
             ))}
           </div>
         </div>
+        {/* WinCascade must be inside GameCanvas so it shares the same CSS
+            scale transform — otherwise positions and card sizes are in
+            unscaled screen pixels and look tiny / wrong on desktop. */}
+        <WinCascade active={won} foundations={foundations} onNewGame={() => newGame()} onOpenSettings={onOpenSettings} />
       </GameCanvas>
 
       {/* DragOverlay is portalled to document.body (screen space).
@@ -642,7 +647,6 @@ export function GameBoard() {
         {dragSourceInfo && <DragStack cards={dragSourceInfo.cards} scale={scale} />}
       </DragOverlay>
     </DndContext>
-    <WinCascade active={won} foundations={foundations} />
   </LayoutGroup>
   )
 }

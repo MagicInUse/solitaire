@@ -14,15 +14,16 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Double-click / double-tap** — auto-sends a card to the correct foundation
 - **Drop previews** — translucent ghost shows exactly where a stack will land
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
-- **Hints** — 💡 button highlights the best available move; dead-game detection shows a banner when no moves remain
+- **Hints** — 💡 button highlights the best available move; dead-game detection (checks waste, tableau, and foundation tops) shows a banner when no moves remain
 - **Auto-complete** — cascades remaining cards to foundations when the game is won
+- **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts
 - **Persisted game state** — game survives page reloads and app restarts via `localStorage`
 
 ### Scoring Modes
 | Mode | HUD | Leaderboard |
 |------|-----|-------------|
 | **Standard** | ⏱ timer + ★ formula score | ✅ recorded |
-| **Vegas** | 💵 profit/loss ($5/card − $52 entry) | ✅ recorded |
+| **Vegas** | 💵 profit/loss ($5/card − $52 entry) | ✅ recorded with $ prefix |
 | **Casual** | moves only | ❌ win streaks still tracked |
 
 ### Rules & Difficulty
@@ -32,7 +33,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 
 ### Stats & Leaderboard
 - Lifetime stats: games played, won, win %, current streak, best streak, fastest win, best score
-- Leaderboard: top 100 wins sorted by score, showing draw mode, time, moves, undos used
+- Leaderboard: rolling **7-day top 10** wins sorted by score; resets weekly so the board stays competitive; Vegas scores displayed with a `$` prefix
 
 ### Visuals & Options
 - **6 card backs** to choose from

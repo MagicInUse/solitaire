@@ -71,13 +71,16 @@ export function LeaderboardPanel() {
 
       {/* Leaderboard table */}
       <div>
-        <h3 className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-2">
-          Top Games
-        </h3>
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-white/40 text-[10px] font-semibold uppercase tracking-widest">
+            This Week
+          </h3>
+          <span className="text-white/20 text-[9px]">resets weekly · top 10</span>
+        </div>
 
         {stats.leaderboard.length === 0 ? (
           <p className="text-white/25 text-[12px] text-center py-5">
-            Win a game to see it here!
+            Win a game this week to see it here!
           </p>
         ) : (
           <div className="flex flex-col gap-px">
@@ -97,7 +100,7 @@ export function LeaderboardPanel() {
               >
                 <span className="text-white/30">{i + 1}</span>
                 <span className="text-right text-[#6ee08a] font-semibold">
-                  {entry.score}
+                  {entry.scoringMode === 'vegas' ? `$${entry.score}` : entry.score}
                 </span>
                 <span className="text-right text-white/65">
                   {formatTime(entry.timeSeconds)}

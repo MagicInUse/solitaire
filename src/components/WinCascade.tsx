@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Pile } from '../types/cards'
 import { CardFace } from './CardFace'
-import { CARD_W, CARD_H } from '../constants/canvas'
+import { CARD_W, CARD_H, CANVAS_H, CANVAS_H_PORTRAIT } from '../constants/canvas'
 import { useOptionsStore } from '../store/useOptionsStore'
+import { useGameScale } from '../hooks/useGameScale'
 
 /** All 52 cards, ordered by suit then rank, for the cascade display. */
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'] as const
@@ -22,6 +23,8 @@ interface WinCascadeProps {
   active: boolean
   /** Foundation piles — used to know winning is real (52 cards placed). */
   foundations: [Pile, Pile, Pile, Pile]
+  onNewGame?: () => void
+  onOpenSettings?: () => void
 }
 
 interface FallingCard {
@@ -40,8 +43,10 @@ interface FallingCard {
  * in a staggered cascade. Cards fall with slight rotation and bounce at
  * the bottom. Click anywhere to dismiss.
  */
-export function WinCascade({ active, foundations }: WinCascadeProps) {
+export function WinCascade({ active, foundations, onNewGame, onOpenSettings }: WinCascadeProps) {
   const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
+  const { layout } = useGameScale()
+  const canvasH = layout === 'portrait' ? CANVAS_H_PORTRAIT : CANVAS_H
   const [cards, setCards] = useState<FallingCard[]>([])
   const [visible, setVisible] = useState(false)
 
@@ -83,19 +88,31 @@ export function WinCascade({ active, foundations }: WinCascadeProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          onClick={() => setVisible(false)}
         >
           {/* Semi-transparent backdrop with "You Win!" message */}
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <motion.div
-              className="text-white text-center select-none pointer-events-none"
+              className="text-white text-center select-none"
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.35, type: 'spring', bounce: 0.5 }}
             >
               <div className="text-[52px] font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">🎉</div>
               <div className="text-[28px] font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] font-serif">You Win!</div>
-              <div className="text-[13px] mt-2 opacity-70">Tap to dismiss</div>
+              <div className="flex gap-3 mt-4 justify-center">
+                <button
+                  className="px-4 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[13px] font-semibold border-0 cursor-pointer transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setVisible(false); onNewGame?.() }}
+                >
+                  New Game
+                </button>
+                <button
+                  className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-[13px] font-semibold border-0 cursor-pointer transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setVisible(false); onOpenSettings?.() }}
+                >
+                  Settings
+                </button>
+              </div>
             </motion.div>
           </div>
 
@@ -113,7 +130,7 @@ export function WinCascade({ active, foundations }: WinCascadeProps) {
               }}
               initial={{ y: -CARD_H - 20, rotate: fc.rotation * 0.5, opacity: 1 }}
               animate={{
-                y: [-(CARD_H + 20), 390 * 0.65, 390 * 0.60, 390 * 0.65],
+                y: [-(CARD_H + 20), canvasH * 0.65, canvasH * 0.60, canvasH * 0.65],
                 rotate: fc.rotation,
                 opacity: 1,
               }}

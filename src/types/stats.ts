@@ -10,6 +10,7 @@ export interface LeaderboardEntry {
   /** ISO date string of when the game was won. */
   date: string
   drawMode: 1 | 3
+  scoringMode: 'standard' | 'vegas'
   timeSeconds: number
   moves: number
   score: number

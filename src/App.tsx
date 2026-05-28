@@ -58,7 +58,7 @@ export default function App() {
 
   return (
     <>
-      <GameBoard />
+      <GameBoard onOpenSettings={() => setMenuOpen(true)} />
       <MenuButton onClick={() => setMenuOpen(true)} />
       <MenuModal open={menuOpen} onClose={() => setMenuOpen(false)} />
       <UpdateBanner />
