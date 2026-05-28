@@ -89,15 +89,11 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
   return (
     <div
       ref={setNodeRef}
-      className={clsx("relative shrink-0 rounded-[5px] [transition:background_0.15s]", isOver && "bg-white/12")}
-      style={{
-        width: CARD_W,
-        height: totalHeight,
-        ...(hintTargetHighlight ? { boxShadow: '0 0 0 2px rgba(253,224,71,0.7), 0 0 12px 2px rgba(253,224,71,0.2)' } : {}),
-      }}
+      className={clsx("relative w-12 shrink-0 rounded-[5px] [transition:background_0.15s]", isOver && "bg-white/12", hintTargetHighlight && "hint-glow-col")}
+      style={{ height: totalHeight }}
     >
       {pile.length === 0 ? (
-        <div className="w-[48px] h-[67px] rounded-[5px] border-2 border-dashed border-white/30" />
+        <div className="w-12 h-16.75 rounded-[5px] border-2 border-dashed border-white/30" />
       ) : (
         pile.map((card, i) => {
           // Compute absolute top offset by summing offsets of cards above
@@ -112,9 +108,9 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
             i >= dragSourceInfo.cardIndex
 
           return (
-            <div key={card.id} style={{ position: 'absolute', top, left: 0, zIndex: i }}>
+            <div key={card.id} className="absolute left-0" style={{ top, zIndex: i }}>
               {isGhosted ? (
-                <div className="w-[48px] h-[67px] rounded-[5px] border-2 border-dashed border-white/45 bg-white/6" />
+                <div className="w-12 h-16.75 rounded-[5px] border-2 border-dashed border-white/45 bg-white/6" />
               ) : (
                 <CardView
                   card={card}
@@ -135,8 +131,8 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
       {previewCards?.map((card, j) => (
         <div
           key={`preview-${card.id}`}
-          className="w-[48px] h-[67px] opacity-55 pointer-events-none rounded-[5px] overflow-hidden"
-          style={{ position: 'absolute', top: previewBaseTop + j * fuOffset, left: 0, zIndex: pile.length + j }}
+          className="w-12 h-16.75 absolute left-0 opacity-55 pointer-events-none rounded-[5px] overflow-hidden"
+          style={{ top: previewBaseTop + j * fuOffset, zIndex: pile.length + j }}
         >
           <CardFace card={card} />
         </div>

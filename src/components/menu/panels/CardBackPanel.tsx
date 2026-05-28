@@ -36,28 +36,24 @@ export function CardBackPanel() {
             >
               {/* Miniature card back preview */}
               <div
-                className="w-[38px] h-[53px] rounded-[4px] shadow border border-black/30 relative overflow-hidden flex items-center justify-center"
-                style={back.outerStyle}
+                className={`w-9.5 h-13.25 rounded-sm shadow border border-black/30 relative overflow-hidden flex items-center justify-center card-back-${back.id}`}
               >
                 <div
-                  className="absolute inset-[3px] rounded-[2px]"
-                  style={{ background: back.innerBg }}
+                  className={`absolute inset-0.75 rounded-xs card-back-${back.id}-inner`}
                 />
                 <div
-                  className="absolute inset-[3px] rounded-[2px] border pointer-events-none z-[2]"
-                  style={{ borderColor: back.innerBorder }}
+                  className={`absolute inset-0.75 rounded-xs border pointer-events-none z-2 card-back-${back.id}-border`}
                 />
                 {back.showLogo ? (
                   <img
                     src={vqLogo}
-                    className="w-[14px] h-auto opacity-90 relative z-[3] pointer-events-none"
+                    className="w-3.5 h-auto opacity-90 relative z-3 pointer-events-none"
                     alt=""
                     draggable={false}
                   />
                 ) : back.centerIcon ? (
                   <span
-                    className="relative z-[3] text-[12px] select-none pointer-events-none"
-                    style={{ opacity: 0.38 }}
+                    className="relative z-3 text-[12px] select-none pointer-events-none opacity-38"
                   >
                     {back.centerIcon}
                   </span>
@@ -80,7 +76,7 @@ export function CardBackPanel() {
           disabled
           className="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-white/8 bg-white/3 opacity-40 cursor-not-allowed"
         >
-          <div className="w-[38px] h-[53px] rounded-[4px] border border-dashed border-white/25 flex items-center justify-center">
+          <div className="w-9.5 h-13.25 rounded-sm border border-dashed border-white/25 flex items-center justify-center">
             <span className="text-white/35 text-[22px] leading-none">+</span>
           </div>
           <span className="text-[10px] font-medium text-white/35">Custom</span>

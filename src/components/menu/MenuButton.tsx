@@ -13,7 +13,7 @@ export function MenuButton({ onClick }: MenuButtonProps) {
     <button
       aria-label="Open menu"
       onClick={onClick}
-      className="fixed bottom-[16px] left-[16px] z-10 w-[44px] h-[44px] rounded-[6px] bg-black/38 hover:bg-black/56 active:bg-black/68 text-white/85 transition-colors cursor-pointer border-0 flex items-center justify-center"
+      className="fixed menu-button-safe-pos z-10 w-11 h-11 rounded-md bg-black/38 hover:bg-black/56 active:bg-black/68 text-white/85 transition-colors cursor-pointer border-0 flex items-center justify-center"
     >
       {/* Hamburger icon */}
       <svg

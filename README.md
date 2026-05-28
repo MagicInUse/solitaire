@@ -41,7 +41,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Hints toggle** — show or hide the hint button
 
 ### Layout
-- **Adaptive canvas** — fixed 390 × 390 (landscape) or 390 × 700 (portrait) logical canvas, CSS-scaled to fit any viewport; scale capped at 2.5× on large screens
+- **Adaptive canvas** — fixed 390 × 390 (landscape) or 390 × 750 (portrait) logical canvas, CSS-scaled to fit any viewport; scale capped at 2.5× on large screens
 - **Portrait & landscape** — layout mode detected reliably on iOS (uses `document.documentElement` dimensions to avoid stale `window.innerWidth` on rotation)
 - **Safe-area aware** — respects notch, Dynamic Island, and home indicator insets
 - **PWA** — installable on iOS and Android; works fully offline; service-worker update banner

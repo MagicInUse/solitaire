@@ -28,7 +28,7 @@ import { DragStack }   from "./DragStack"
 import { GameCanvas }  from "./GameCanvas"
 import { WinCascade }  from "./WinCascade"
 import { useStatsStore }          from "../store/useStatsStore"
-import { computeHints }           from "../utils/hints"
+import { computeHints, filterUsefulHints } from '../utils/hints'
 import { calculateScore, calculateVegasScore, formatVegasScore, formatTime } from "../utils/scoring"
 import { useTimer }               from "../hooks/useTimer"
 import { useSounds }              from "../hooks/useSounds"
@@ -192,15 +192,7 @@ export function GameBoard() {
     const canStillRecycle = waste.length > 0 && canRecycle
     if (canStillRecycle) { setDeadGame(false); return }   // can replenish stock
     const hints = computeHints({ waste, foundations, tableau })
-    // Filter out hints that make no progress: a King moving from the very
-    // bottom of its tableau column (cardIndex === 0) to another empty column
-    // reveals nothing and is purely circular. Waste→empty is still useful.
-    const usefulHints = hints.filter(h => {
-      if (h.toType !== 'tableau' || tableau[h.toIndex].length !== 0) return true
-      if (h.fromType !== 'tableau') return true // waste/foundation King → empty is progress
-      return h.cardIndex > 0 // only useful if there are face-down cards to reveal beneath
-    })
-    setDeadGame(usefulHints.length === 0)
+    setDeadGame(filterUsefulHints(hints, tableau).length === 0)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting])
 
@@ -369,10 +361,10 @@ export function GameBoard() {
   }
 
   function handleHint() {
-    const hints = computeHints({ waste, foundations, tableau })
-    if (hints.length === 0) { setActiveHint(null); setHintCycleIdx(0); return }
-    const idx = hintCycleIdx % hints.length
-    setActiveHint(hints[idx])
+    const useful = filterUsefulHints(computeHints({ waste, foundations, tableau }), tableau)
+    if (useful.length === 0) { setActiveHint(null); setHintCycleIdx(0); return }
+    const idx = hintCycleIdx % useful.length
+    setActiveHint(useful[idx])
     setHintCycleIdx(idx + 1)
   }
 
@@ -399,7 +391,7 @@ export function GameBoard() {
   const stockEl = (
     <div
       key="stock"
-      className="w-[48px] h-[67px] shrink-0 cursor-pointer"
+      className="w-12 h-16.75 shrink-0 cursor-pointer"
       onClick={handleStockClick}
       title={
         stock.length > 0
@@ -411,15 +403,14 @@ export function GameBoard() {
     >
       {stock.length > 0 ? (
         <div
-          className="relative w-full h-full rounded-[5px] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] overflow-hidden flex items-center justify-center"
-          style={back.outerStyle}
+          className={`relative w-full h-full rounded-[5px] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] overflow-hidden flex items-center justify-center card-back-${back.id}`}
         >
-          <div className="absolute inset-[4px] rounded-[2px] z-0 pointer-events-none" style={{ background: back.innerBg }} />
-          <div className="absolute inset-[4px] rounded-[2px] z-[2] pointer-events-none" style={{ border: `1px solid ${back.innerBorder}` }} />
+          <div className={`absolute inset-1 rounded-xs z-0 pointer-events-none card-back-${back.id}-inner`} />
+          <div className={`absolute inset-1 rounded-xs z-2 pointer-events-none border card-back-${back.id}-border`} />
           {back.showLogo ? (
-            <img src={vqLogo} className="w-[20px] h-auto opacity-90 relative z-[3] pointer-events-none" alt="" draggable={false} />
+            <img src={vqLogo} className="w-5 h-auto opacity-90 relative z-3 pointer-events-none" alt="" draggable={false} />
           ) : back.centerIcon ? (
-            <span className="relative z-[3] text-[16px] select-none pointer-events-none" style={{ opacity: 0.35 }}>{back.centerIcon}</span>
+            <span className="relative z-3 text-base select-none pointer-events-none opacity-35">{back.centerIcon}</span>
           ) : null}
         </div>
       ) : (
@@ -454,7 +445,7 @@ export function GameBoard() {
   const wasteEl = (
     <div
       key="waste"
-      className="relative h-[67px] shrink-0"
+      className="relative h-16.75 shrink-0"
       style={{ width: wasteContainerW }}
     >
       {waste.slice(-visibleWasteCount).map((card, i) => {
@@ -556,15 +547,15 @@ export function GameBoard() {
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
     >
       <GameCanvas>
-        <div className="w-full min-h-full p-[9px] flex flex-col gap-[6px]">
+        <div className="w-full min-h-full p-2.25 flex flex-col gap-1.5">
           {/* Top row: Stock / Waste / gap / Foundations (order depends on deckLocation) */}
-          <div className="flex gap-[6px] items-start h-[67px]">
+          <div className="flex gap-1.5 items-start h-16.75">
             {topRowItems}
           </div>
 
           {/* HUD: timer · score · moves · action buttons */}
-          <div className="flex items-center h-[26px]">
-            <div className="flex items-center gap-[10px] text-white/65 text-[11px] font-mono flex-1 min-w-0">
+          <div className="flex items-center h-6.5">
+            <div className="flex items-center gap-2.5 text-white/65 text-[11px] font-mono flex-1 min-w-0">
               {scoringMode === 'standard' && (
                 <><span title="Time">&#9203; {formatTime(elapsed)}</span>
                 <span title="Score">&#9733; {standardScore}</span></>
@@ -576,23 +567,23 @@ export function GameBoard() {
               )}
               <span title="Moves">Moves: {moveCount}</span>
             </div>
-            <div className="flex items-center gap-[4px]">
+            <div className="flex items-center gap-1">
               <button
-                className="px-[7px] h-[22px] rounded-[4px] text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors"
+                className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors"
                 onClick={() => undo()}
                 disabled={!canUndo}
                 title="Undo"
               >&#x21A9; Undo</button>
               {hintsEnabled && (
               <button
-                className="px-[7px] h-[22px] rounded-[4px] text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors"
+                className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors"
                 onClick={handleHint}
                 title="Show hint"
               >&#128161; Hint</button>
               )}
               {(canAutoComplete || autoCompleting) && (
                 <button
-                  className={`px-[7px] h-[22px] rounded-[4px] text-[10px] font-medium transition-colors ${
+                  className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors ${
                     autoCompleting
                       ? 'bg-emerald-500/40 hover:bg-emerald-500/55 text-emerald-200'
                       : 'bg-white/10 hover:bg-white/20 text-white/80'
@@ -616,7 +607,7 @@ export function GameBoard() {
           )}
 
           {/* Tableau */}
-          <div className="flex gap-[6px] items-start">
+          <div className="flex gap-1.5 items-start">
             {tableau.map((pile, i) => (
               <TableauColumn
                 key={i}

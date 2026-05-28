@@ -41,33 +41,29 @@ export function CardFace({ card }: CardFaceProps) {
       {!card.faceUp ? (
         <motion.div
           key="down"
-          className="relative w-full h-full rounded-[5px] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] shrink-0 overflow-hidden flex items-center justify-center"
-          style={back.outerStyle}
+          className={`relative w-full h-full rounded-[5px] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] shrink-0 overflow-hidden flex items-center justify-center card-back-${back.id}`}
           exit={animationsEnabled ? { scaleX: 0 } : undefined}
           transition={{ duration: 0.075, ease: 'easeIn' }}
         >
           {/* Inner inset frame background */}
           <div
-            className="absolute inset-[4px] rounded-[2px] z-0 pointer-events-none"
-            style={{ background: back.innerBg }}
+            className={`absolute inset-1 rounded-xs z-0 pointer-events-none card-back-${back.id}-inner`}
           />
           {/* Inner inset frame border */}
           <div
-            className="absolute inset-[4px] rounded-[2px] z-[2] pointer-events-none"
-            style={{ border: `1px solid ${back.innerBorder}` }}
+            className={`absolute inset-1 rounded-xs z-2 pointer-events-none border card-back-${back.id}-border`}
           />
           {/* Centre content */}
           {back.showLogo ? (
             <img
               src={vqLogo}
-              className="w-[20px] h-auto opacity-90 relative z-[3] pointer-events-none"
+              className="w-5 h-auto opacity-90 relative z-3 pointer-events-none"
               alt=""
               draggable={false}
             />
           ) : back.centerIcon ? (
             <span
-              className="relative z-[3] text-[16px] select-none pointer-events-none"
-              style={{ opacity: 0.35 }}
+              className="relative z-3 text-base select-none pointer-events-none opacity-35"
             >
               {back.centerIcon}
             </span>
@@ -82,9 +78,9 @@ export function CardFace({ card }: CardFaceProps) {
           animate={{ scaleX: 1 }}
           transition={{ duration: 0.075, ease: 'easeOut' }}
         >
-          <span className="absolute text-[11px] font-bold leading-none top-[3px] left-[4px]" style={{ fontFamily: 'Georgia, serif' }}>{rankLabel}{suitSymbol}</span>
+          <span className="absolute text-[11px] font-bold leading-none top-0.75 left-1 font-georgia">{rankLabel}{suitSymbol}</span>
           <span className="text-[22px] leading-none">{suitSymbol}</span>
-          <span className="absolute text-[11px] font-bold leading-none bottom-[3px] right-[4px] rotate-180" style={{ fontFamily: 'Georgia, serif' }}>{rankLabel}{suitSymbol}</span>
+          <span className="absolute text-[11px] font-bold leading-none bottom-0.75 right-1 rotate-180 font-georgia">{rankLabel}{suitSymbol}</span>
         </motion.div>
       )}
     </AnimatePresence>

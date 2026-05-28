@@ -29,24 +29,16 @@ export function GameCanvas({ children }: GameCanvasProps) {
   const canvasH = layout === 'portrait' ? CANVAS_H_PORTRAIT : CANVAS_H
 
   return (
-    // h-[100dvh]: dynamic viewport height — updates correctly on iOS after
-    // rotation (unlike h-svh which can lag behind the new orientation).
-    <div className="game-canvas-felt w-screen h-[100dvh] relative overflow-hidden">
+    <div className="game-canvas-felt w-screen h-dvh relative overflow-hidden">
       {/* Layer 1 — doodad zone: ambient decorations live here (viewport-relative, unscaled) */}
       <div className="absolute inset-0 pointer-events-none" />
       {/* Layer 2 — game canvas: centered within device safe areas so the
           playfield never overlaps the notch, Dynamic Island, or home indicator. */}
       <div
-        className="absolute inset-0 flex items-center justify-center"
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
-        }}
+        className="absolute inset-0 flex items-center justify-center game-canvas-safe-center"
       >
         <div
-          className="flex-shrink-0 relative overflow-hidden"
+          className="shrink-0 relative overflow-hidden"
           style={{
             width: canvasW,
             height: canvasH,

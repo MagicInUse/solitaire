@@ -38,7 +38,7 @@ export function Switch({ checked, onChange, label, disabled, disabledNote }: Swi
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={[
-          'relative shrink-0 w-[42px] h-[24px] rounded-full',
+          'relative shrink-0 w-10.5 h-6 rounded-full',
           'outline-none focus-visible:ring-2 focus-visible:ring-white/40',
           'transition-colors duration-200',
           disabled
@@ -49,10 +49,10 @@ export function Switch({ checked, onChange, label, disabled, disabledNote }: Swi
       >
         <span
           className={[
-            'absolute top-[4px] left-[4px] w-[16px] h-[16px] rounded-full bg-white shadow-sm',
+            'absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm',
             'transition-transform duration-200',
+            checked ? 'translate-x-4.5' : 'translate-x-0',
           ].join(' ')}
-          style={{ transform: `translateX(${checked ? 18 : 0}px)` }}
         />
       </button>
     </div>

@@ -5,33 +5,50 @@
  */
 
 import { useState } from 'react'
-import { useOptionsStore } from '../../../store/useOptionsStore'
-import { useStatsStore }   from '../../../store/useStatsStore'
+import { useOptionsStore }   from '../../../store/useOptionsStore'
+import { useStatsStore }     from '../../../store/useStatsStore'
+import { useInstallPrompt }  from '../../../hooks/useInstallPrompt'
 import { Switch }  from '../../ui/Switch'
 import { Button }  from '../../ui/Button'
 
 export function OptionsPanel() {
   const { deckLocation, setDeckLocation, hintsEnabled, setHintsEnabled } = useOptionsStore()
   const clearStats = useStatsStore((s) => s.clearStats)
+  const { canInstall, install } = useInstallPrompt()
   const [confirmClear, setConfirmClear] = useState(false)
 
   // Deck location schematic blocks
   const deckBlocks = (
-    <div className="flex gap-[3px]">
-      <div className="w-[18px] h-[26px] rounded-[3px] bg-white/30" />
-      <div className="w-[18px] h-[26px] rounded-[3px] bg-white/18" />
+    <div className="flex gap-0.75">
+      <div className="w-4.5 h-6.5 rounded-[3px] bg-white/30" />
+      <div className="w-4.5 h-6.5 rounded-[3px] bg-white/18" />
     </div>
   )
   const foundationBlocks = (
-    <div className="flex gap-[3px]">
+    <div className="flex gap-0.75">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="w-[18px] h-[26px] rounded-[3px] border border-white/20" />
+        <div key={i} className="w-4.5 h-6.5 rounded-[3px] border border-white/20" />
       ))}
     </div>
   )
 
   return (
     <div className="flex flex-col gap-6">
+
+      {/* Install App — Chromium/Android/desktop only; hidden on iOS (no beforeinstallprompt) */}
+      {canInstall && (
+        <section className="flex flex-col gap-3">
+          <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
+            Install
+          </h3>
+          <Button variant="primary" size="sm" onClick={install}>
+            Install App
+          </Button>
+          <p className="text-white/30 text-[11px] leading-relaxed -mt-2">
+            Add Solitaire to your home screen for the full app experience — plays offline, no browser chrome.
+          </p>
+        </section>
+      )}
 
       {/* Sound effects (stub) */}
       <section className="flex flex-col gap-3">

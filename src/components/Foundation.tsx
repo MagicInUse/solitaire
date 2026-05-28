@@ -53,7 +53,7 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
     pile.length > 0
 
   return (
-    <div ref={setNodeRef} className={clsx("relative w-[48px] h-[67px] rounded-[5px] shrink-0 [transition:background_0.15s]", isOver && "bg-white/15")}>
+    <div ref={setNodeRef} className={clsx("relative w-12 h-16.75 rounded-[5px] shrink-0 [transition:background_0.15s]", isOver && "bg-white/15")}>
       {isGhosted ? (
         <div className="w-full h-full rounded-[5px] border-2 border-dashed border-white/40 flex items-center justify-center text-[19px] text-white/40">{SUIT_SYMBOLS[index]}</div>
       ) : topCard ? (
@@ -73,7 +73,7 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
         </div>
       )}
       {hinted && (
-        <div className="absolute inset-0 rounded-[5px] pointer-events-none" style={{ boxShadow: '0 0 0 2px rgba(253,224,71,0.9), 0 0 10px 2px rgba(253,224,71,0.35)' }} />
+        <div className="absolute inset-0 rounded-[5px] pointer-events-none hint-glow-card" />
       )}
     </div>
   )

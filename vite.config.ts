@@ -17,13 +17,16 @@ export default defineConfig({
         name: 'Solitaire by MagicApps',
         short_name: 'Solitaire',
         description: 'Offline-first Klondike Solitaire by MagicApps',
+        lang: 'en',
         theme_color: '#1d1e2c',
         background_color: '#1d1e2c',
         display: 'standalone',
+        display_override: ['window-controls-overlay', 'standalone'],
         orientation: 'any',
         start_url: '/',
         scope: '/',
         id: 'magicapps-solitaire',
+        categories: ['games', 'entertainment'],
         icons: [
           {
             src: 'pwa-64x64.png',
@@ -53,10 +56,13 @@ export default defineConfig({
         // Essential for SPA offline: serve the cached app shell for any
         // navigation request that isn't explicitly precached.
         navigateFallback: 'index.html',
-        // Take control of all existing clients immediately so the first install
-        // doesn't leave old tabs running the previous version.
-        skipWaiting: true,
-        clientsClaim: true,
+        // Remove stale precache partitions left by previous builds so storage
+        // doesn't grow unboundedly across deploys.
+        cleanupOutdatedCaches: true,
+        // NOTE: skipWaiting and clientsClaim are intentionally omitted.
+        // registerType:'prompt' means the new SW waits until the user confirms
+        // via UpdateBanner. Forcing activation here would cause asset-version
+        // mismatches mid-session (new SW + old page assets).
         runtimeCaching: [
           {
             // Static assets: serve from cache first; refresh in the background.

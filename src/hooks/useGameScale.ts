@@ -55,10 +55,20 @@ function computeLayout(w: number, h: number): GameLayout {
   }
 }
 
-/** Read the committed rendered dimensions of <html> — reliable on iOS during rotation. */
+/** Read the committed rendered dimensions of <html> — reliable on iOS during rotation.
+ *  Subtracts computed padding (env safe-area-inset-*) so the returned size
+ *  matches the content box that ResizeObserver.contentRect reports, keeping
+ *  the initial scale consistent with all subsequent recalculations. */
 function getDocumentDimensions(): [number, number] {
   const el = document.documentElement
-  return [el.clientWidth, el.clientHeight]
+  const cs = getComputedStyle(el)
+  const w = el.clientWidth
+    - (parseFloat(cs.paddingLeft)   || 0)
+    - (parseFloat(cs.paddingRight)  || 0)
+  const h = el.clientHeight
+    - (parseFloat(cs.paddingTop)    || 0)
+    - (parseFloat(cs.paddingBottom) || 0)
+  return [w, h]
 }
 
 /**

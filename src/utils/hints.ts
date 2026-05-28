@@ -76,3 +76,30 @@ export function computeHints({ waste, foundations, tableau }: HintableState): Hi
 
   return hints
 }
+
+/**
+ * Filters out hints that make no productive progress — specifically, moving a
+ * King to an empty tableau column when there are no face-down cards underneath
+ * it to reveal (a pure shuffle with no upside).
+ *
+ * Rules:
+ * - King from waste → empty column: **keep** (unblocks waste, may reveal a
+ *   card sequence that was buried)
+ * - King from tableau, `cardIndex > 0` → empty column: **keep** (there is at
+ *   least one face-down card beneath it; moving the King reveals it)
+ * - King from tableau, `cardIndex === 0` → empty column: **discard** (the King
+ *   IS the bottom card; nothing is hidden under it — purely circular)
+ */
+export function filterUsefulHints(
+  hints: Hint[],
+  tableau: HintableState['tableau'],
+): Hint[] {
+  return hints.filter(h => {
+    // Not targeting an empty tableau column → always keep
+    if (h.toType !== 'tableau' || tableau[h.toIndex].length !== 0) return true
+    // King from waste to empty column → keep (progress)
+    if (h.fromType !== 'tableau') return true
+    // King from tableau → keep only when it reveals a hidden card
+    return h.cardIndex > 0
+  })
+}

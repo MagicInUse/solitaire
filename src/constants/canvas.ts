@@ -59,9 +59,13 @@ export const MIN_FACEUP_OFFSET   = 12
 // ─── Tableau area geometry ────────────────────────────────────────────────────
 // Used by the compression utility to know how much vertical space is available.
 
-/** Y coordinate where the tableau columns start (top of first card). */
-export const TABLEAU_TOP         = PADDING + CARD_H + GAP         // 82 px
-/** Vertical space available for tableau columns below the top row (landscape). */
-export const TABLEAU_AVAILABLE_H = CANVAS_H - TABLEAU_TOP - PADDING  // 299 px
-/** Vertical space available for tableau columns below the top row (portrait). */
-export const TABLEAU_AVAILABLE_H_PORTRAIT = CANVAS_H_PORTRAIT - TABLEAU_TOP - PADDING  // 659 px
+/** Height of the HUD row (timer · score · moves · undo/hint buttons). */
+export const HUD_H = 26
+
+/** Y coordinate where the tableau columns start (top of first card).
+ *  Accounts for: padding + top-row (card) + gap + HUD row + gap. */
+export const TABLEAU_TOP         = PADDING + CARD_H + GAP + HUD_H + GAP   // 114 px
+/** Vertical space available for tableau columns (landscape). */
+export const TABLEAU_AVAILABLE_H = CANVAS_H - TABLEAU_TOP - PADDING        // 267 px
+/** Vertical space available for tableau columns (portrait). */
+export const TABLEAU_AVAILABLE_H_PORTRAIT = CANVAS_H_PORTRAIT - TABLEAU_TOP - PADDING  // 627 px

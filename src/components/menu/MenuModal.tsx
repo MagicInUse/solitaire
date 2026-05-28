@@ -46,13 +46,13 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
            The fixed height (not min-height) is what eliminates panel-switch jumping. */}
       <div className="flex h-[min(540px,calc(100dvh-24px))]">
         {/* ── Sidebar nav ─────────────────────────────────────────────── */}
-        <nav className="w-[116px] shrink-0 border-r border-white/8 py-2 flex flex-col">
+        <nav className="w-29 shrink-0 border-r border-white/8 py-2 flex flex-col">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
               onClick={() => setActivePanel(item.id)}
               className={[
-                'w-full text-left px-3 py-[9px]',
+                'w-full text-left px-3 py-2.25',
                 'text-[12px] font-medium leading-snug',
                 'flex items-center gap-2',
                 'cursor-pointer border-0 transition-colors duration-150',
@@ -61,7 +61,7 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
                   : 'bg-transparent text-white/45 hover:text-white/70 hover:bg-white/5',
               ].join(' ')}
             >
-              <span className="text-[13px] w-[16px] text-center shrink-0">
+              <span className="text-[13px] w-4 text-center shrink-0">
                 {item.icon}
               </span>
               {item.label}
@@ -70,9 +70,9 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
           <div className="flex-1" />
           <button
             onClick={onClose}
-            className="w-full text-left px-3 py-[9px] text-[12px] font-medium leading-snug flex items-center gap-2 cursor-pointer border-0 border-t border-white/8 mt-1 pt-[10px] bg-transparent text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors duration-150"
+            className="w-full text-left px-3 py-2.25 text-[12px] font-medium leading-snug flex items-center gap-2 cursor-pointer border-0 border-t border-white/8 mt-1 pt-2.5 bg-transparent text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors duration-150"
           >
-            <span className="text-[13px] w-[16px] text-center shrink-0">✕</span>
+            <span className="text-[13px] w-4 text-center shrink-0">✕</span>
             Close
           </button>
         </nav>

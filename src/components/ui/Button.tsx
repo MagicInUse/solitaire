@@ -36,7 +36,7 @@ export function Button({
   return (
     <button
       className={[
-        'rounded-[6px] font-semibold tracking-[0.04em]',
+        'rounded-md font-semibold tracking-[0.04em]',
         'transition-colors duration-150 cursor-pointer border-0',
         'outline-none focus-visible:ring-2 focus-visible:ring-white/40',
         'disabled:opacity-40 disabled:cursor-not-allowed',

@@ -5,8 +5,8 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    user-select: none;
     -webkit-user-select: none;
+    user-select: none;
   }
 
   html, body {
@@ -23,6 +23,15 @@
     /* Match the body felt so there's no white flash during initial paint or
        when iOS briefly composites the page during a PWA resume. */
     background-color: #0c3018;
+    /* Inset all content away from the notch, Dynamic Island, and home indicator.
+       Works in conjunction with viewport-fit=cover (set in index.html) so the
+       html background fills the unsafe areas while content stays clear of them.
+       getDocumentDimensions() in useGameScale subtracts these values so the
+       canvas scale computation uses the safe content area, not the full viewport. */
+    padding-top:    env(safe-area-inset-top,    0px);
+    padding-right:  env(safe-area-inset-right,  0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left:   env(safe-area-inset-left,   0px);
   }
 
   body {
@@ -81,3 +90,50 @@
     background-size: 8px 8px, 8px 8px, 4px 4px;
   }
 }
+
+/* MenuButton — offset from the safe area so it clears the home indicator and
+   the left notch on landscape-notched devices.  Defined here rather than as
+   an inline style so it works with the project's no-inline-styles lint rule. */
+.menu-button-safe-pos {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  left:   calc(env(safe-area-inset-left,   0px) + 16px);
+}
+
+/* UpdateBanner — needs safe-area-aware top positioning */
+.update-banner-top { top: calc(env(safe-area-inset-top, 0px) + 16px); }
+
+/* ─── Card back designs ──────────────────────────────────────────────────── */
+/* Outer background, inner inset background, and inner inset border colour
+   for each built-in card back.  Components use className="card-back-{id}"
+   (and -inner / -border variants) instead of inline style props. */
+
+.card-back-classic         { background: #1d1e2c; }
+.card-back-classic-inner   { background: #e9e9e9; }
+.card-back-classic-border  { border-color: rgba(156, 82, 139, 0.75); }
+
+.card-back-forest          { background: repeating-linear-gradient(135deg, #0a2e14 0px, #0a2e14 6px, #0c3518 6px, #0c3518 12px); }
+.card-back-forest-inner    { background: #c8e6c9; }
+.card-back-forest-border   { border-color: rgba(76, 175, 80, 0.65); }
+
+.card-back-ocean           { background: repeating-linear-gradient(-135deg, #091e36 0px, #091e36 6px, #0e2d4d 6px, #0e2d4d 12px); }
+.card-back-ocean-inner     { background: #b3d4f5; }
+.card-back-ocean-border    { border-color: rgba(33, 150, 243, 0.65); }
+
+.card-back-crimson         { background: repeating-linear-gradient(135deg, #2e0a0a 0px, #2e0a0a 6px, #3d1010 6px, #3d1010 12px); }
+.card-back-crimson-inner   { background: #f5c6c6; }
+.card-back-crimson-border  { border-color: rgba(239, 83, 80, 0.65); }
+
+.card-back-midnight        { background: radial-gradient(ellipse at 35% 35%, #1a1a3e 0%, #050508 100%); }
+.card-back-midnight-inner  { background: #1a1a3a; }
+.card-back-midnight-border { border-color: rgba(120, 120, 220, 0.45); }
+
+.card-back-slate           { background: repeating-linear-gradient(60deg, #1e1e1e 0px, #1e1e1e 4px, #2a2a2a 4px, #2a2a2a 10px); }
+.card-back-slate-inner     { background: #ddd; }
+.card-back-slate-border    { border-color: rgba(255, 255, 255, 0.25); }
+
+/* Font stack for card rank/suit labels */
+.font-georgia { font-family: Georgia, serif; }
+
+/* Hint highlight glow — golden ring overlaid on hinted cards / columns */
+.hint-glow-card { box-shadow: 0 0 0 2px rgba(253,224,71,0.9), 0 0 10px 2px rgba(253,224,71,0.35); }
+.hint-glow-col  { box-shadow: 0 0 0 2px rgba(253,224,71,0.7), 0 0 12px 2px rgba(253,224,71,0.2); }
