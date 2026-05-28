@@ -181,11 +181,16 @@ export function GameBoard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoCompleting, won, tableau, foundations])
 
-  // Dead-game detection: no hints AND no way to draw new cards
+  // Recycle is allowed when stock is empty and the limit hasn't been reached
+  const canRecycle =
+    stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
+
+  // Dead-game detection: no playable hints AND no way to draw new cards.
   // Stock having cards always means more draws are possible, so we only
-  // check after the stock is empty. Waste cards are only accessible via
-  // recycling — so if recycles are exhausted AND waste has no unplayed cards
-  // visible, the game is truly stuck.
+  // do the full hint-check after stock is empty. The waste top card is always
+  // accessible and is evaluated by computeHints; the canStillRecycle guard
+  // additionally covers the case where the buried waste cards may become
+  // reachable via a future recycle pass.
   useEffect(() => {
     if (won || isDealing || autoCompleting) return
     if (stock.length > 0) { setDeadGame(false); return }  // still cards to draw
@@ -194,7 +199,7 @@ export function GameBoard() {
     const hints = computeHints({ waste, foundations, tableau })
     setDeadGame(filterUsefulHints(hints, tableau).length === 0)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting])
+  }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting, canRecycle])
 
   // Reset hint cycle whenever the store clears the active hint (after any game action)
   useEffect(() => {
@@ -372,10 +377,6 @@ export function GameBoard() {
     !won && !autoCompleting &&
     stock.length === 0 && waste.length === 0 &&
     tableau.every(col => col.every(c => c.faceUp))
-
-  // Recycle is allowed when stock is empty and the limit hasn't been reached
-  const canRecycle =
-    stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
 
   function handleStockClick() {
     if (stock.length > 0) {

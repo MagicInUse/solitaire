@@ -20,9 +20,9 @@ export function DeckLocationPanel() {
         {(['left', 'right'] as const).map((loc) => {
           const isActive = deckLocation === loc
 
-          // Schematic: two solid rects = deck group, four outline rects = foundations
+          // Schematic: stock (bright) + waste (dim). Right mode mirrors via flex-row-reverse.
           const deck = (
-            <div className="flex gap-[3px]">
+            <div className={`flex gap-[3px]${loc === 'right' ? ' flex-row-reverse' : ''}`}>
               <div className="w-[18px] h-[26px] rounded-[3px] bg-white/30" />
               <div className="w-[18px] h-[26px] rounded-[3px] bg-white/18" />
             </div>

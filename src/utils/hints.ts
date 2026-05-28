@@ -34,6 +34,12 @@ function canGoToTableau(card: Card, pile: Pile): boolean {
  * Returns all valid hint moves given the current board state.
  * Foundation moves come first. Tableau moves follow.
  * Returns an empty array when no moves are available.
+ *
+ * Sources checked:
+ *  - Waste top card
+ *  - Every face-up card in each tableau column (bottom of a movable stack)
+ *  - Top card of each foundation pile (legal in standard Klondike to move back
+ *    to the tableau to unblock sequences)
  */
 export function computeHints({ waste, foundations, tableau }: HintableState): Hint[] {
   const hints: Hint[] = []
@@ -44,10 +50,12 @@ export function computeHints({ waste, foundations, tableau }: HintableState): Hi
     fromIndex: number | undefined,
     cardIndex: number,
   ) {
-    // Foundation destinations first (always optimal)
-    for (let fi = 0; fi < 4; fi++) {
-      if (canGoToFoundation(card, foundations[fi])) {
-        hints.push({ fromType, fromIndex, cardIndex, toType: 'foundation', toIndex: fi })
+    // Foundation destinations — never valid when already coming from a foundation
+    if (fromType !== 'foundation') {
+      for (let fi = 0; fi < 4; fi++) {
+        if (canGoToFoundation(card, foundations[fi])) {
+          hints.push({ fromType, fromIndex, cardIndex, toType: 'foundation', toIndex: fi })
+        }
       }
     }
     // Tableau destinations
@@ -74,6 +82,15 @@ export function computeHints({ waste, foundations, tableau }: HintableState): Hi
     }
   }
 
+  // Foundation top cards — can be moved back to tableau to unblock sequences.
+  // This is a legal Klondike move and occasionally the only way to make progress.
+  for (let fi = 0; fi < 4; fi++) {
+    const pile = foundations[fi]
+    if (pile.length === 0) continue
+    const top = pile[pile.length - 1]
+    tryCard(top, 'foundation', fi, pile.length - 1)
+  }
+
   return hints
 }
 
@@ -85,10 +102,11 @@ export function computeHints({ waste, foundations, tableau }: HintableState): Hi
  * Rules:
  * - King from waste → empty column: **keep** (unblocks waste, may reveal a
  *   card sequence that was buried)
- * - King from tableau, `cardIndex > 0` → empty column: **keep** (there is at
- *   least one face-down card beneath it; moving the King reveals it)
- * - King from tableau, `cardIndex === 0` → empty column: **discard** (the King
- *   IS the bottom card; nothing is hidden under it — purely circular)
+ * - King from foundation → empty column: **keep** (unusual but legal move that
+ *   may be the only way to unblock a sequence)
+ * - King from tableau → empty column: **keep only when there is at least one
+ *   face-down card beneath it**; if all cards below are already face-up,
+ *   moving accomplishes nothing and is a purely circular shuffle
  */
 export function filterUsefulHints(
   hints: Hint[],
@@ -97,9 +115,10 @@ export function filterUsefulHints(
   return hints.filter(h => {
     // Not targeting an empty tableau column → always keep
     if (h.toType !== 'tableau' || tableau[h.toIndex].length !== 0) return true
-    // King from waste to empty column → keep (progress)
+    // King from waste or foundation to empty column → keep (makes progress)
     if (h.fromType !== 'tableau') return true
-    // King from tableau → keep only when it reveals a hidden card
-    return h.cardIndex > 0
+    // King from tableau → keep only when it reveals at least one hidden card
+    const srcPile = tableau[h.fromIndex!]
+    return srcPile.slice(0, h.cardIndex).some(c => !c.faceUp)
   })
 }
