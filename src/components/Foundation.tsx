@@ -22,6 +22,11 @@ interface FoundationProps {
    * is being hovered over this foundation.
    */
   previewCard?: Card
+  /**
+   * When true, renders a golden glow ring to indicate this foundation
+   * is the target of the active hint.
+   */
+  hinted?: boolean
 }
 
 /**
@@ -33,7 +38,7 @@ interface FoundationProps {
  * - Renders an optional {@link CardFace} preview overlay while a valid card
  *   hovers above the slot.
  */
-export function Foundation({ index, pile, dragSourceInfo, scale, previewCard }: FoundationProps) {
+export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hinted }: FoundationProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `foundation-${index}`,
     data: { toType: "foundation", toIndex: index },
@@ -66,6 +71,9 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard }: 
         <div className="absolute inset-0 opacity-55 pointer-events-none rounded-[5px] overflow-hidden">
           <CardFace card={previewCard} />
         </div>
+      )}
+      {hinted && (
+        <div className="absolute inset-0 rounded-[5px] pointer-events-none" style={{ boxShadow: '0 0 0 2px rgba(253,224,71,0.9), 0 0 10px 2px rgba(253,224,71,0.35)' }} />
       )}
     </div>
   )

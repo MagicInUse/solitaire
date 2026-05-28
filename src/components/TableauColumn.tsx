@@ -39,6 +39,16 @@ interface TableauColumnProps {
    * real pile when a valid drag is hovered over this column.
    */
   previewCards?: Card[]
+  /**
+   * Index of the card that is the bottom of the hinted source stack.
+   * Cards at this index and above receive the golden glow hint ring.
+   */
+  hintSourceCardIndex?: number
+  /**
+   * When true, renders a golden glow on the column to indicate it is the
+   * drop target of the active hint.
+   */
+  hintTargetHighlight?: boolean
 }
 
 /**
@@ -51,7 +61,7 @@ interface TableauColumnProps {
  * - Appends an optional translucent preview stack while a valid card is
  *   hovered above the column.
  */
-export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, onDoubleClick, previewCards }: TableauColumnProps) {
+export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, onDoubleClick, previewCards, hintSourceCardIndex, hintTargetHighlight }: TableauColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `tableau-${colIndex}`,
     data: { toType: 'tableau', toIndex: colIndex },
@@ -80,7 +90,11 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
     <div
       ref={setNodeRef}
       className={clsx("relative shrink-0 rounded-[5px] [transition:background_0.15s]", isOver && "bg-white/12")}
-      style={{ width: CARD_W, height: totalHeight }}
+      style={{
+        width: CARD_W,
+        height: totalHeight,
+        ...(hintTargetHighlight ? { boxShadow: '0 0 0 2px rgba(253,224,71,0.7), 0 0 12px 2px rgba(253,224,71,0.2)' } : {}),
+      }}
     >
       {pile.length === 0 ? (
         <div className="w-[48px] h-[67px] rounded-[5px] border-2 border-dashed border-white/30" />
@@ -111,6 +125,7 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
                   scale={scale}
                   onDoubleClick={onDoubleClick}
                   dealDelay={(colIndex + i) * 0.03}
+                  hinted={hintSourceCardIndex !== undefined && i >= hintSourceCardIndex && card.faceUp}
                 />
               )}
             </div>

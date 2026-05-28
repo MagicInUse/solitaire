@@ -27,6 +27,11 @@ import { recentlyDropped } from "../utils/dragTracking"
 import { DragStack }   from "./DragStack"
 import { GameCanvas }  from "./GameCanvas"
 import { WinCascade }  from "./WinCascade"
+import { useStatsStore }          from "../store/useStatsStore"
+import { computeHints }           from "../utils/hints"
+import { calculateScore, formatTime } from "../utils/scoring"
+import { useTimer }               from "../hooks/useTimer"
+import { useSounds }              from "../hooks/useSounds"
 
 
 // ─── Klondike move validation ──────────────────────────────────────────────
@@ -80,17 +85,26 @@ export function GameBoard() {
     stock, waste, foundations, tableau,
     drawFromStock, resetStock, moveCards, flipTableauTop,
     won, isDealing, setDealing, dealId,
+    moveCount, undosUsed, activeHint, setActiveHint, undo,
   } = useGameStore()
-  const drawId = useGameStore((s) => s.drawId)
+  const drawId  = useGameStore((s) => s.drawId)
+  const canUndo = useGameStore((s) => s.history.length > 0)
 
   const { deckLocation, stockRecycles, drawMode, cardBackId } = useOptionsStore()
   const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
   const recycleCount = useGameStore((s) => s.recycleCount)
   const back = getCardBack(cardBackId)
 
+  const { recordGameStarted, recordWin, recordLoss } = useStatsStore()
+  const { playSfx } = useSounds()
+  const elapsed = useTimer(!won && !isDealing, dealId)
+  const score   = calculateScore({ drawMode: drawMode as 1 | 3, timeSeconds: elapsed, moves: moveCount, undosUsed })
+
   const { scale, layout } = useGameScale()
   const [dragSourceInfo, setDragSourceInfo] = useState<DragSourceInfo & { cards: Card[] } | null>(null)
   const [dragOverInfo, setDragOverInfo] = useState<{ toType: "tableau" | "foundation"; toIndex: number } | null>(null)
+  const [autoCompleting, setAutoCompleting] = useState(false)
+  const [hintCycleIdx, setHintCycleIdx] = useState(0)
   // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
   const dragSourceInfoRef = useRef<(DragSourceInfo & { cards: Card[] }) | null>(null)
 
@@ -98,6 +112,9 @@ export function GameBoard() {
   const prevDrawIdRef       = useRef(drawId)
   const prevVisibleIdsRef   = useRef(new Set<string>())
   const isFirstRenderRef    = useRef(true)
+  // Stats tracking refs
+  const prevWonRef          = useRef(false)
+  const statsGameTrackedRef = useRef(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
@@ -120,6 +137,66 @@ export function GameBoard() {
     const count = drawMode === 1 ? Math.min(1, waste.length) : Math.min(3, waste.length)
     prevVisibleIdsRef.current = new Set(waste.slice(-count).map(c => c.id))
   })
+
+  // Reset per-game transient state when a new game starts
+  useEffect(() => {
+    setAutoCompleting(false)
+    setHintCycleIdx(0)
+  }, [dealId])
+
+  // Auto-complete: step one card to foundation every 80 ms while running
+  useEffect(() => {
+    if (!autoCompleting || won) return
+
+    function findMove() {
+      for (let col = 0; col < 7; col++) {
+        const pile = tableau[col]
+        if (pile.length === 0) continue
+        const topCard = pile[pile.length - 1]
+        if (!topCard.faceUp) continue
+        for (let fi = 0; fi < 4; fi++) {
+          if (canMoveCards([topCard], foundations[fi], 'foundation')) {
+            return { colIndex: col, cardIndex: pile.length - 1, foundationIdx: fi }
+          }
+        }
+      }
+      return null
+    }
+
+    const move = findMove()
+    if (!move) { setAutoCompleting(false); return }
+
+    const id = setTimeout(() => {
+      moveCards({ fromType: 'tableau', fromIndex: move.colIndex, cardIndex: move.cardIndex, toType: 'foundation', toIndex: move.foundationIdx })
+      playSfx('CARD_PLACE')
+    }, 80)
+    return () => clearTimeout(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCompleting, won, tableau, foundations])
+
+  // Reset hint cycle whenever the store clears the active hint (after any game action)
+  useEffect(() => {
+    if (!activeHint) setHintCycleIdx(0)
+  }, [activeHint])
+
+  // Stats: record game started on each new game; record loss if previous wasn't won
+  useEffect(() => {
+    if (dealId === 0) return
+    if (statsGameTrackedRef.current && !prevWonRef.current) recordLoss()
+    prevWonRef.current = false
+    statsGameTrackedRef.current = true
+    recordGameStarted()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealId])
+
+  // Stats: record win when the player finishes; also trigger win sfx
+  useEffect(() => {
+    if (!won) return
+    prevWonRef.current = true
+    playSfx('WIN')
+    recordWin({ drawMode: drawMode as 1 | 3, timeSeconds: elapsed, moves: moveCount, score, undosUsed })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [won])
 
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current as {
@@ -205,6 +282,7 @@ export function GameBoard() {
       toType: dest.toType,
       toIndex: dest.toIndex,
     })
+    playSfx('CARD_PLACE')
 
     // Mark all dragged cards so their layoutId is skipped for one render,
     // preventing Framer Motion from replaying the drag movement as a second animation.
@@ -243,6 +321,7 @@ export function GameBoard() {
           toType: 'foundation',
           toIndex: i,
         })
+        playSfx('CARD_PLACE')
         if (sourceType === 'tableau' && sourceIndex !== undefined) {
           flipTableauTop(sourceIndex)
         }
@@ -251,6 +330,19 @@ export function GameBoard() {
     }
   }
 
+  function handleHint() {
+    const hints = computeHints({ waste, foundations, tableau })
+    if (hints.length === 0) { setActiveHint(null); setHintCycleIdx(0); return }
+    const idx = hintCycleIdx % hints.length
+    setActiveHint(hints[idx])
+    setHintCycleIdx(idx + 1)
+  }
+
+  const canAutoComplete =
+    !won && !autoCompleting &&
+    stock.length === 0 && waste.length === 0 &&
+    tableau.every(col => col.every(c => c.faceUp))
+
   // Recycle is allowed when stock is empty and the limit hasn't been reached
   const canRecycle =
     stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
@@ -258,8 +350,10 @@ export function GameBoard() {
   function handleStockClick() {
     if (stock.length > 0) {
       drawFromStock()
+      playSfx('CARD_DRAW')
     } else if (canRecycle) {
       resetStock()
+      playSfx('CARD_DRAW')
     }
   }
 
@@ -379,6 +473,7 @@ export function GameBoard() {
                 scale={scale}
                 draggable={isTop}
                 onDoubleClick={isTop ? handleDoubleClick : undefined}
+                hinted={isTop && activeHint?.fromType === 'waste'}
               />
             </motion.div>
           </div>
@@ -399,6 +494,7 @@ export function GameBoard() {
           ? dragSourceInfo?.cards[0]
           : undefined
       }
+      hinted={activeHint?.toType === 'foundation' && activeHint.toIndex === i}
     />
   ))
 
@@ -428,6 +524,39 @@ export function GameBoard() {
             {topRowItems}
           </div>
 
+          {/* HUD: timer · score · moves · action buttons */}
+          <div className="flex items-center h-[26px]">
+            <div className="flex items-center gap-[10px] text-white/65 text-[11px] font-mono flex-1 min-w-0">
+              <span title="Time">&#9203; {formatTime(elapsed)}</span>
+              <span title="Score">&#9733; {score}</span>
+              <span title="Moves">{moveCount} mv</span>
+            </div>
+            <div className="flex items-center gap-[4px]">
+              <button
+                className="px-[7px] h-[22px] rounded-[4px] text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors"
+                onClick={() => undo()}
+                disabled={!canUndo}
+                title="Undo"
+              >&#x21A9; Undo</button>
+              <button
+                className="px-[7px] h-[22px] rounded-[4px] text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors"
+                onClick={handleHint}
+                title="Show hint"
+              >&#128161; Hint</button>
+              {(canAutoComplete || autoCompleting) && (
+                <button
+                  className={`px-[7px] h-[22px] rounded-[4px] text-[10px] font-medium transition-colors ${
+                    autoCompleting
+                      ? 'bg-emerald-500/40 hover:bg-emerald-500/55 text-emerald-200'
+                      : 'bg-white/10 hover:bg-white/20 text-white/80'
+                  }`}
+                  onClick={() => setAutoCompleting(v => !v)}
+                  title="Auto-complete"
+                >&#10003; Auto</button>
+              )}
+            </div>
+          </div>
+
           {/* Tableau */}
           <div className="flex gap-[6px] items-start">
             {tableau.map((pile, i) => (
@@ -444,6 +573,12 @@ export function GameBoard() {
                     ? dragSourceInfo?.cards
                     : undefined
                 }
+                hintSourceCardIndex={
+                  activeHint?.fromType === 'tableau' && activeHint.fromIndex === i
+                    ? activeHint.cardIndex
+                    : undefined
+                }
+                hintTargetHighlight={activeHint?.toType === 'tableau' && activeHint.toIndex === i}
               />
             ))}
           </div>

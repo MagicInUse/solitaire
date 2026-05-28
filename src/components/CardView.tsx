@@ -39,6 +39,11 @@ interface CardViewProps {
    * @defaultValue 0
    */
   dealDelay?: number
+  /**
+   * When true, renders a golden glow ring to indicate this card is the
+   * source (or part of the source stack) of the active hint.
+   */
+  hinted?: boolean
 }
 
 /**
@@ -51,7 +56,7 @@ interface CardViewProps {
  * While dragging, the original card becomes invisible (opacity 0); the
  * visible clone is rendered by `DragOverlay` via {@link DragStack}.
  */
-export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick, dealDelay = 0 }: CardViewProps) {
+export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick, dealDelay = 0, hinted = false }: CardViewProps) {
   const lastTapRef = useRef<number>(0)
   const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
   const isDealing = useGameStore((s) => s.isDealing)
@@ -111,6 +116,7 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
         userSelect: "none",
         cursor: card.faceUp && draggable ? "grab" : "default",
         flexShrink: 0,
+        ...(hinted ? { boxShadow: '0 0 0 2px rgba(253,224,71,0.9), 0 0 10px 2px rgba(253,224,71,0.35)' } : {}),
       }}
     >
       <CardFace card={card} />
