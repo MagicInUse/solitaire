@@ -26,9 +26,10 @@ import { CardView }    from "./CardView"
 import { recentlyDropped } from "../utils/dragTracking"
 import { DragStack }   from "./DragStack"
 import { GameCanvas }  from "./GameCanvas"
-import { WinCascade }  from "./WinCascade"
+import { WinCascade }     from "./WinCascade"
+import { DeadGameModal }  from "./DeadGameModal"
 import { useStatsStore }          from "../store/useStatsStore"
-import { computeHints, filterUsefulHints } from '../utils/hints'
+import { computeHints, filterUsefulHints, isDeadGame } from '../utils/hints'
 import { calculateScore, calculateVegasScore, formatVegasScore, formatTime } from "../utils/scoring"
 import { useTimer }               from "../hooks/useTimer"
 import { useSounds }              from "../hooks/useSounds"
@@ -58,6 +59,16 @@ function canMoveCards(
 
   // tableau
   const bottom = movingCards[0] // bottom of the moving stack (lowest rank)
+
+  // Validate internal stack sequence before checking destination
+  for (let j = 0; j < movingCards.length - 1; j++) {
+    const cur  = movingCards[j]
+    const nxt  = movingCards[j + 1]
+    if (!nxt.faceUp) return false
+    if (nxt.rank !== cur.rank - 1) return false
+    if (isRed(nxt.suit) === isRed(cur.suit)) return false
+  }
+
   if (destPile.length === 0) return bottom.rank === 13
   const top = destPile[destPile.length - 1]
   if (!top.faceUp) return false
@@ -186,18 +197,12 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
     stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
 
   // Dead-game detection: no playable hints AND no way to draw new cards.
-  // Stock having cards always means more draws are possible, so we only
-  // do the full hint-check after stock is empty. The waste top card is always
-  // accessible and is evaluated by computeHints; the canStillRecycle guard
-  // additionally covers the case where the buried waste cards may become
-  // reachable via a future recycle pass.
+  // Uses isDeadGame() which handles all cases including the subtle scenario
+  // where waste has cards and recycles remain but no buried card can ever
+  // reach any destination on the current (unchangeable) board.
   useEffect(() => {
     if (won || isDealing || autoCompleting) return
-    if (stock.length > 0) { setDeadGame(false); return }  // still cards to draw
-    const canStillRecycle = waste.length > 0 && canRecycle
-    if (canStillRecycle) { setDeadGame(false); return }   // can replenish stock
-    const hints = computeHints({ waste, foundations, tableau })
-    setDeadGame(filterUsefulHints(hints, tableau).length === 0)
+    setDeadGame(isDeadGame({ stock, waste, foundations, tableau, canRecycle }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting, canRecycle])
 
@@ -367,7 +372,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   }
 
   function handleHint() {
-    const useful = filterUsefulHints(computeHints({ waste, foundations, tableau }), tableau)
+    const useful = filterUsefulHints(computeHints({ waste, foundations, tableau }), tableau, foundations)
     if (useful.length === 0) { setActiveHint(null); setHintCycleIdx(0); return }
     const idx = hintCycleIdx % useful.length
     setActiveHint(useful[idx])
@@ -525,7 +530,10 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
           ? dragSourceInfo?.cards[0]
           : undefined
       }
-      hinted={activeHint?.toType === 'foundation' && activeHint.toIndex === i}
+      hinted={
+        (activeHint?.toType === 'foundation' && activeHint.toIndex === i) ||
+        (activeHint?.fromType === 'foundation' && activeHint.fromIndex === i)
+      }
     />
   ))
 
@@ -597,16 +605,13 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
             </div>
           </div>
 
-          {/* Dead-game banner */}
-          {deadGame && !won && (
-            <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-red-950/60 border border-red-700/40 text-[11px]">
-              <span className="text-red-300/90">No moves left — this game can&apos;t be completed.</span>
-              <button
-                onClick={() => newGame()}
-                className="shrink-0 px-2.5 py-1 rounded-lg bg-red-700/50 hover:bg-red-600/60 text-red-100 font-medium transition-colors cursor-pointer border-0 text-[11px]"
-              >New Game</button>
-            </div>
-          )}
+          {/* Dead-game modal — rendered inline so it layers above the game canvas */}
+          <DeadGameModal
+            open={deadGame && !won}
+            onClose={() => setDeadGame(false)}
+            onNewGame={() => newGame()}
+            onOpenSettings={onOpenSettings}
+          />
 
           {/* Tableau */}
           <div className="flex gap-1.5 items-start">

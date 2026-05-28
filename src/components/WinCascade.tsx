@@ -90,7 +90,8 @@ export function WinCascade({ active, foundations, onNewGame, onOpenSettings }: W
           transition={{ duration: 0.2 }}
         >
           {/* Semi-transparent backdrop with "You Win!" message */}
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+          {/* z-10 keeps the buttons above the falling cards (cards are z-default siblings) */}
+          <div className="absolute inset-0 z-10 bg-black/40 flex items-center justify-center">
             <motion.div
               className="text-white text-center select-none"
               initial={{ scale: 0.4, opacity: 0 }}
@@ -101,13 +102,13 @@ export function WinCascade({ active, foundations, onNewGame, onOpenSettings }: W
               <div className="text-[28px] font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] font-serif">You Win!</div>
               <div className="flex gap-3 mt-4 justify-center">
                 <button
-                  className="px-4 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[13px] font-semibold border-0 cursor-pointer transition-colors"
+                  className="px-4 py-1.5 rounded-lg bg-white text-green-800 text-[13px] font-semibold border-0 cursor-pointer transition-colors hover:bg-white/90 shadow-md"
                   onClick={(e) => { e.stopPropagation(); setVisible(false); onNewGame?.() }}
                 >
                   New Game
                 </button>
                 <button
-                  className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-[13px] font-semibold border-0 cursor-pointer transition-colors"
+                  className="px-4 py-1.5 rounded-lg bg-white/25 hover:bg-white/35 text-white text-[13px] font-semibold border border-white/40 cursor-pointer transition-colors shadow-md backdrop-blur-sm"
                   onClick={(e) => { e.stopPropagation(); setVisible(false); onOpenSettings?.() }}
                 >
                   Settings

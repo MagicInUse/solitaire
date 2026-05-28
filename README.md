@@ -14,9 +14,10 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Double-click / double-tap** — auto-sends a card to the correct foundation
 - **Drop previews** — translucent ghost shows exactly where a stack will land
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
-- **Hints** — 💡 button highlights the best available move; dead-game detection (checks waste, tableau, and foundation tops) shows a banner when no moves remain
+- **Hints** — 💡 button highlights the best available move; cycles through all valid moves on repeated taps; suppresses redundant card-shuffling moves and only suggests productive foundation back-moves (e.g. to unbury hidden tableau cards); highlights both the source and destination of each hint
+- **Dead-game detection** — shows a modal when no moves remain; correctly handles games with recycles still permitted by checking whether any buried waste card could land anywhere on the current board — if not, recycling would only repeat the same stuck pass indefinitely
 - **Auto-complete** — cascades remaining cards to foundations when the game is won
-- **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts
+- **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts rendered above the card cascade
 - **Persisted game state** — game survives page reloads and app restarts via `localStorage`
 
 ### Scoring Modes
@@ -111,10 +112,11 @@ src/
     TableauColumn/  # Tableau column with compressed offset layout
     GameBoard/  # Top-level game controller and HUD
     GameCanvas/ # Full-screen felt world + CSS scale boundary
-    WinCascade/ # Win animation — cards cascade to foundations
-    menu/       # MenuButton + MenuModal with tabbed panels
-      panels/   # NewGame, Rules, Visuals, Options, Leaderboard
-    ui/         # Modal, Button, Switch primitives
+    WinCascade/     # Win animation — cards cascade to foundations
+    DeadGameModal/ # Modal shown when no moves remain
+    menu/          # MenuButton + MenuModal with tabbed panels
+      panels/      # NewGame, Rules, Visuals, Options, Leaderboard
+    ui/            # Modal, Button, Switch primitives
 ```
 
 ---
