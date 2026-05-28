@@ -15,7 +15,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Drop previews** — translucent ghost shows exactly where a stack will land
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
 - **Hints** — 💡 button highlights the best available move; cycles through all valid moves on repeated taps; suppresses redundant card-shuffling moves and only suggests productive foundation back-moves (e.g. to unbury hidden tableau cards); highlights both the source and destination of each hint
-- **Dead-game detection** — shows a modal when no moves remain; correctly handles games with recycles still permitted by checking whether any buried waste card could land anywhere on the current board — if not, recycling would only repeat the same stuck pass indefinitely
+- **Dead-game detection** — shows a modal when no moves remain; correctly handles games with recycles still permitted by performing a one-level lookahead on each buried waste card: a card that can legally land on the tableau is only counted as "alive" if doing so enables at least one subsequent useful move — preventing the modal from being suppressed by dead-end placements that lead nowhere
 - **Auto-complete** — cascades remaining cards to foundations when the game is won
 - **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts rendered above the card cascade
 - **Persisted game state** — game survives page reloads and app restarts via `localStorage`

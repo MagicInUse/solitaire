@@ -269,12 +269,42 @@ export function isDeadGame({
   // 3. Check buried waste cards against the (now confirmed unchangeable) board.
   //    waste.slice(0, -1) = everything except the top, which computeHints
   //    already evaluated above.
+  //
+  //    Foundation destinations: always real progress — no lookahead needed.
+  //
+  //    Tableau destinations: a raw canGoToTableau check is not enough.
+  //    Placing a buried card on a tableau pile can be a "pure shuffle" that
+  //    leads nowhere — identical to the trap filterUsefulHints already handles
+  //    for tableau→tableau moves.  With unlimited recycling, any such dead-end
+  //    placement would prevent the modal from ever triggering.
+  //
+  //    Fix: for tableau placements, simulate the move (append card to that
+  //    column, remove card from waste) and check whether filterUsefulHints
+  //    finds at least one subsequent useful move.  Only if it does is the game
+  //    considered alive.
   if (waste.length > 0 && canRecycle) {
-    const buried = waste.slice(0, -1)
-    const canUnblock = buried.some(card =>
-      foundations.some(f => canGoToFoundation(card, f)) ||
-      tableau.some(t => canGoToTableau(card, t))
-    )
+    const buried = waste.slice(0, waste.length > 1 ? -1 : undefined)
+    const canUnblock = buried.some(card => {
+      // Foundation — always progress
+      if (foundations.some(f => canGoToFoundation(card, f))) return true
+
+      // Tableau — simulate and verify a follow-up move exists
+      for (let ti = 0; ti < 7; ti++) {
+        if (!canGoToTableau(card, tableau[ti])) continue
+        const simTableau = tableau.map((p, i) =>
+          i === ti ? [...p, { ...card, faceUp: true }] : p
+        ) as typeof tableau
+        const simWaste = waste.filter(c => c.id !== card.id)
+        const follow = filterUsefulHints(
+          computeHints({ waste: simWaste, foundations, tableau: simTableau }),
+          simTableau,
+          foundations,
+        )
+        if (follow.length > 0) return true
+      }
+
+      return false
+    })
     if (canUnblock) return false
   }
 
