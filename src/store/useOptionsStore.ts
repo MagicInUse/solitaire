@@ -17,6 +17,8 @@ interface OptionsStore extends GameOptions {
   setAnimationsEnabled: (v: boolean) => void
   setSfxEnabled: (v: boolean) => void
   setStockRecycles: (v: number | 'unlimited') => void
+  setUndoLimit: (v: number | 'unlimited') => void
+  setHintsEnabled: (v: boolean) => void
 }
 
 export const useOptionsStore = create<OptionsStore>()(
@@ -29,6 +31,8 @@ export const useOptionsStore = create<OptionsStore>()(
       setAnimationsEnabled:  (animationsEnabled)  => set({ animationsEnabled }),
       setSfxEnabled:         (sfxEnabled)         => set({ sfxEnabled }),
       setStockRecycles:      (stockRecycles)      => set({ stockRecycles }),
+      setUndoLimit:          (undoLimit)          => set({ undoLimit }),
+      setHintsEnabled:       (hintsEnabled)       => set({ hintsEnabled }),
     }),
     {
       name: 'solitaire-options',

@@ -110,6 +110,7 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
       style={{
         width: CARD_W,
         height: CARD_H,
+        borderRadius: '5px',
         // Only apply dnd-kit transform while dragging; let Framer Motion handle layout otherwise
         ...(scaledTransform ? { transform: CSS.Translate.toString(scaledTransform) } : {}),
         touchAction: "none",

@@ -20,6 +20,10 @@ export interface GameOptions {
   sfxEnabled: boolean
   /** Max times the waste pile can be recycled back to stock per game. */
   stockRecycles: number | 'unlimited'
+  /** Max times the player can undo per game. 0 = disabled, 'unlimited' = no cap. */
+  undoLimit: number | 'unlimited'
+  /** Whether the Hint button is available during play. */
+  hintsEnabled: boolean
 }
 
 export const DEFAULT_OPTIONS: GameOptions = {
@@ -29,4 +33,6 @@ export const DEFAULT_OPTIONS: GameOptions = {
   animationsEnabled: true,
   sfxEnabled: false,
   stockRecycles: 'unlimited',
+  undoLimit: 'unlimited',
+  hintsEnabled: true,
 }

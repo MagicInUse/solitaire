@@ -88,12 +88,14 @@ export function GameBoard() {
     moveCount, undosUsed, activeHint, setActiveHint, undo,
   } = useGameStore()
   const drawId  = useGameStore((s) => s.drawId)
-  const canUndo = useGameStore((s) => s.history.length > 0)
 
-  const { deckLocation, stockRecycles, drawMode, cardBackId } = useOptionsStore()
+  const { deckLocation, stockRecycles, drawMode, cardBackId, undoLimit, hintsEnabled } = useOptionsStore()
   const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
   const recycleCount = useGameStore((s) => s.recycleCount)
   const back = getCardBack(cardBackId)
+
+  const canUndo = useGameStore((s) => s.history.length > 0)
+    && (undoLimit === 'unlimited' || undosUsed < (undoLimit as number))
 
   const { recordGameStarted, recordWin, recordLoss } = useStatsStore()
   const { playSfx } = useSounds()
@@ -538,11 +540,13 @@ export function GameBoard() {
                 disabled={!canUndo}
                 title="Undo"
               >&#x21A9; Undo</button>
+              {hintsEnabled && (
               <button
                 className="px-[7px] h-[22px] rounded-[4px] text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors"
                 onClick={handleHint}
                 title="Show hint"
               >&#128161; Hint</button>
+              )}
               {(canAutoComplete || autoCompleting) && (
                 <button
                   className={`px-[7px] h-[22px] rounded-[4px] text-[10px] font-medium transition-colors ${

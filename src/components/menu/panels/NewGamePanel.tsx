@@ -1,15 +1,14 @@
 /**
  * @module NewGamePanel
- * Lets the player start a fresh game and pick their draw mode.
+ * Starts a fresh game. Draw mode and other rules live in the Rules panel.
  *
  * If a game is already in progress (moveCount > 0 and not won), a
  * confirmation step warns before discarding the current game.
  */
 
 import { useState } from 'react'
-import { useGameStore }   from '../../../store/useGameStore'
+import { useGameStore }    from '../../../store/useGameStore'
 import { useOptionsStore } from '../../../store/useOptionsStore'
-import { useStatsStore }   from '../../../store/useStatsStore'
 import { Button } from '../../ui/Button'
 
 interface NewGamePanelProps {
@@ -17,14 +16,10 @@ interface NewGamePanelProps {
 }
 
 export function NewGamePanel({ onClose }: NewGamePanelProps) {
-  const newGame      = useGameStore((s) => s.newGame)
-  const moveCount    = useGameStore((s) => s.moveCount)
-  const won          = useGameStore((s) => s.won)
-
-  const { drawMode, setDrawMode } = useOptionsStore()
-
-  const recordLoss         = useStatsStore((s) => s.recordLoss)
-  const recordGameStarted  = useStatsStore((s) => s.recordGameStarted)
+  const newGame   = useGameStore((s) => s.newGame)
+  const moveCount = useGameStore((s) => s.moveCount)
+  const won       = useGameStore((s) => s.won)
+  const drawMode  = useOptionsStore((s) => s.drawMode)
 
   const [confirming, setConfirming] = useState(false)
 
@@ -35,8 +30,6 @@ export function NewGamePanel({ onClose }: NewGamePanelProps) {
       setConfirming(true)
       return
     }
-    if (hasActiveGame) recordLoss()
-    recordGameStarted()
     newGame()
     onClose()
   }
@@ -44,34 +37,12 @@ export function NewGamePanel({ onClose }: NewGamePanelProps) {
   return (
     <div className="flex flex-col gap-5">
 
-      {/* Draw mode selector */}
-      <div>
-        <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest mb-2.5">
-          Draw Mode
-        </h3>
-        <div className="flex gap-2">
-          {([1, 3] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setDrawMode(mode)}
-              className={[
-                'flex-1 py-3 rounded-xl text-[13px] font-semibold',
-                'border transition-colors cursor-pointer',
-                drawMode === mode
-                  ? 'bg-[#3da85e]/15 border-[#3da85e]/55 text-[#6ee08a]'
-                  : 'bg-white/5 border-white/12 text-white/45 hover:border-white/28 hover:text-white/65',
-              ].join(' ')}
-            >
-              Draw {mode}
-            </button>
-          ))}
-        </div>
-        <p className="text-white/28 text-[11px] mt-2 leading-relaxed">
-          {drawMode === 1
-            ? 'Draw one card at a time from the stock.'
-            : 'Draw three cards at a time. Only the top card is playable.'}
-        </p>
-      </div>
+      {/* Current rule summary */}
+      <p className="text-white/35 text-[12px] leading-relaxed">
+        Start a fresh game of Klondike Solitaire using your current rules
+        ({drawMode === 1 ? 'Draw 1' : 'Draw 3'}).
+        Adjust rules anytime from the <span className="text-white/55">Rules</span> tab.
+      </p>
 
       {/* Confirmation warning */}
       {confirming && (

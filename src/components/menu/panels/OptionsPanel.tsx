@@ -1,7 +1,7 @@
 /**
  * @module OptionsPanel
- * Miscellaneous game options: stock recycles limit and data management.
- * Sound effects toggle is present but disabled (coming soon).
+ * Sound effects toggle (stub), deck position, and data management.
+ * Game rules (draw mode, recycles, undo limit) live in the Rules panel.
  */
 
 import { useState } from 'react'
@@ -10,13 +10,25 @@ import { useStatsStore }   from '../../../store/useStatsStore'
 import { Switch }  from '../../ui/Switch'
 import { Button }  from '../../ui/Button'
 
-const RECYCLE_OPTIONS: (number | 'unlimited')[] = ['unlimited', 3, 2, 1]
-
 export function OptionsPanel() {
-  const { stockRecycles, setStockRecycles } = useOptionsStore()
-
+  const { deckLocation, setDeckLocation, hintsEnabled, setHintsEnabled } = useOptionsStore()
   const clearStats = useStatsStore((s) => s.clearStats)
   const [confirmClear, setConfirmClear] = useState(false)
+
+  // Deck location schematic blocks
+  const deckBlocks = (
+    <div className="flex gap-[3px]">
+      <div className="w-[18px] h-[26px] rounded-[3px] bg-white/30" />
+      <div className="w-[18px] h-[26px] rounded-[3px] bg-white/18" />
+    </div>
+  )
+  const foundationBlocks = (
+    <div className="flex gap-[3px]">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="w-[18px] h-[26px] rounded-[3px] border border-white/20" />
+      ))}
+    </div>
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,31 +47,57 @@ export function OptionsPanel() {
         />
       </section>
 
-      {/* Stock recycles */}
+      {/* Hints */}
       <section className="flex flex-col gap-3">
         <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
-          Stock Recycles
+          Hints
+        </h3>
+        <Switch
+          checked={hintsEnabled}
+          onChange={setHintsEnabled}
+          label="Allow Hints"
+        />
+        <p className="text-white/30 text-[11px] leading-relaxed -mt-2">
+          Show the Hint button during play. Disable for a more challenging experience.
+        </p>
+      </section>
+
+      {/* Deck position */}
+      <section className="flex flex-col gap-3">
+        <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
+          Deck Position
         </h3>
         <p className="text-white/30 text-[11px] leading-relaxed -mt-1">
-          Maximum number of times the waste pile can be cycled back to stock
-          per game. ∞ = no limit.
+          Choose which side the stock and waste piles appear on.
         </p>
-        <div className="flex gap-2">
-          {RECYCLE_OPTIONS.map((v) => (
-            <button
-              key={String(v)}
-              onClick={() => setStockRecycles(v)}
-              className={[
-                'flex-1 py-2 rounded-xl text-[13px] font-semibold',
-                'border transition-colors cursor-pointer',
-                stockRecycles === v
-                  ? 'bg-[#3da85e]/15 border-[#3da85e]/55 text-[#6ee08a]'
-                  : 'bg-white/5 border-white/12 text-white/45 hover:border-white/28 hover:text-white/65',
-              ].join(' ')}
-            >
-              {v === 'unlimited' ? '∞' : v}
-            </button>
-          ))}
+        <div className="flex flex-col gap-2">
+          {(['left', 'right'] as const).map((loc) => {
+            const isActive = deckLocation === loc
+            return (
+              <button
+                key={loc}
+                onClick={() => setDeckLocation(loc)}
+                className={[
+                  'w-full p-3.5 rounded-xl border text-left',
+                  'transition-colors cursor-pointer',
+                  isActive
+                    ? 'bg-[#3da85e]/12 border-[#3da85e]/45'
+                    : 'bg-white/4 border-white/10 hover:border-white/22',
+                ].join(' ')}
+              >
+                <div className="flex items-center justify-between mb-2.5">
+                  {loc === 'left' ? (
+                    <>{deckBlocks}<div className="flex-1" />{foundationBlocks}</>
+                  ) : (
+                    <>{foundationBlocks}<div className="flex-1" />{deckBlocks}</>
+                  )}
+                </div>
+                <div className={`text-[13px] font-semibold ${isActive ? 'text-[#6ee08a]' : 'text-white/50'}`}>
+                  {loc === 'left' ? 'Left (default)' : 'Right'}
+                </div>
+              </button>
+            )
+          })}
         </div>
       </section>
 
