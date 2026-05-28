@@ -192,7 +192,15 @@ export function GameBoard() {
     const canStillRecycle = waste.length > 0 && canRecycle
     if (canStillRecycle) { setDeadGame(false); return }   // can replenish stock
     const hints = computeHints({ waste, foundations, tableau })
-    setDeadGame(hints.length === 0)
+    // Filter out hints that make no progress: a King moving from the very
+    // bottom of its tableau column (cardIndex === 0) to another empty column
+    // reveals nothing and is purely circular. Waste→empty is still useful.
+    const usefulHints = hints.filter(h => {
+      if (h.toType !== 'tableau' || tableau[h.toIndex].length !== 0) return true
+      if (h.fromType !== 'tableau') return true // waste/foundation King → empty is progress
+      return h.cardIndex > 0 // only useful if there are face-down cards to reveal beneath
+    })
+    setDeadGame(usefulHints.length === 0)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting])
 
