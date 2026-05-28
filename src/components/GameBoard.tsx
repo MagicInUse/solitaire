@@ -33,6 +33,7 @@ import { computeHints, filterUsefulHints, isDeadGame } from '../utils/hints'
 import { calculateScore, calculateVegasScore, formatVegasScore, formatTime } from "../utils/scoring"
 import { useTimer }               from "../hooks/useTimer"
 import { useSounds }              from "../hooks/useSounds"
+import { Timer, Star, Coins, Lightbulb, Undo2, Zap } from 'lucide-react'
 
 
 // ─── Klondike move validation ──────────────────────────────────────────────
@@ -416,8 +417,8 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
           <div className={`absolute inset-1 rounded-xs z-2 pointer-events-none border card-back-${back.id}-border`} />
           {back.showLogo ? (
             <img src={vqLogo} className="w-5 h-auto opacity-90 relative z-3 pointer-events-none" alt="" draggable={false} />
-          ) : back.centerIcon ? (
-            <span className="relative z-3 text-base select-none pointer-events-none opacity-35">{back.centerIcon}</span>
+          ) : back.CenterIcon ? (
+            <back.CenterIcon size={16} fill="currentColor" strokeWidth={0} className="relative z-3 pointer-events-none opacity-35" />
           ) : null}
         </div>
       ) : (
@@ -567,40 +568,40 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
           <div className="flex items-center h-6.5">
             <div className="flex items-center gap-2.5 text-white/65 text-[11px] font-mono flex-1 min-w-0">
               {scoringMode === 'standard' && (
-                <><span title="Time">&#9203; {formatTime(elapsed)}</span>
-                <span title="Score">&#9733; {standardScore}</span></>
+                <><span title="Time" className="inline-flex items-center gap-1"><Timer size={11} strokeWidth={2} />{formatTime(elapsed)}</span>
+                <span title="Score" className="inline-flex items-center gap-1"><Star size={11} fill="currentColor" strokeWidth={0} />{standardScore}</span></>
               )}
               {scoringMode === 'vegas' && (
-                <span title="Vegas profit" className={vegasProfit >= 0 ? 'text-emerald-400/80' : 'text-red-400/80'}>
-                  &#x1F4B5; {formatVegasScore(vegasProfit)}
+                <span title="Vegas profit" className={`inline-flex items-center gap-1 ${vegasProfit >= 0 ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
+                  <Coins size={12} strokeWidth={1.75} className="text-yellow-400" />{formatVegasScore(vegasProfit)}
                 </span>
               )}
               <span title="Moves">Moves: {moveCount}</span>
             </div>
             <div className="flex items-center gap-1">
               <button
-                className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors"
+                className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors inline-flex items-center gap-1"
                 onClick={() => undo()}
                 disabled={!canUndo}
                 title="Undo"
-              >&#x21A9; Undo</button>
+              ><Undo2 size={11} strokeWidth={2} /> Undo</button>
               {hintsEnabled && (
               <button
-                className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors"
+                className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors inline-flex items-center gap-1"
                 onClick={handleHint}
                 title="Show hint"
-              >&#128161; Hint</button>
+              ><Lightbulb size={11} strokeWidth={2} /> Hint</button>
               )}
               {(canAutoComplete || autoCompleting) && (
                 <button
-                  className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors ${
+                  className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors inline-flex items-center gap-1 ${
                     autoCompleting
                       ? 'bg-emerald-500/40 hover:bg-emerald-500/55 text-emerald-200'
                       : 'bg-white/10 hover:bg-white/20 text-white/80'
                   }`}
                   onClick={() => setAutoCompleting(v => !v)}
                   title="Auto-complete"
-                >&#10003; Auto</button>
+                ><Zap size={11} strokeWidth={2} /> Auto</button>
               )}
             </div>
           </div>

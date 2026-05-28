@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Trophy } from 'lucide-react'
 import type { Pile } from '../types/cards'
 import { CardFace } from './CardFace'
 import { CARD_W, CARD_H, CANVAS_H, CANVAS_H_PORTRAIT } from '../constants/canvas'
@@ -98,7 +99,7 @@ export function WinCascade({ active, foundations, onNewGame, onOpenSettings }: W
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.15, duration: 0.35, type: 'spring', bounce: 0.5 }}
             >
-              <div className="text-[52px] font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">🎉</div>
+              <Trophy size={52} strokeWidth={1.25} className="text-yellow-400 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
               <div className="text-[28px] font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] font-serif">You Win!</div>
               <div className="flex gap-3 mt-4 justify-center">
                 <button

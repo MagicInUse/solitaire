@@ -7,8 +7,9 @@
  * standard backdrop, portal, and entrance/exit animations.
  */
 
-import { Modal }   from './ui/Modal'
-import { Button }  from './ui/Button'
+import { Modal }           from './ui/Modal'
+import { Button }          from './ui/Button'
+import { BrokenCardIcon }  from './icons/BrokenCardIcon'
 
 interface DeadGameModalProps {
   open: boolean
@@ -34,7 +35,7 @@ export function DeadGameModal({ open, onClose, onNewGame, onOpenSettings }: Dead
 
         {/* Header */}
         <div className="text-center">
-          <div className="text-[36px] leading-none mb-2">🃏</div>
+          <div className="leading-none mb-2 flex justify-center"><BrokenCardIcon size={36} /></div>
           <h2 className="text-white/90 text-[18px] font-bold tracking-wide">
             No Moves Left
           </h2>

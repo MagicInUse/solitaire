@@ -44,8 +44,8 @@ export function VisualsPanel() {
                   <div className={`absolute inset-0.75 rounded-xs border pointer-events-none z-2 card-back-${back.id}-border`} />
                   {back.showLogo ? (
                     <img src={vqLogo} className="w-3.5 h-auto opacity-90 relative z-3 pointer-events-none" alt="" draggable={false} />
-                  ) : back.centerIcon ? (
-                    <span className="relative z-3 text-[12px] select-none pointer-events-none opacity-38">{back.centerIcon}</span>
+                  ) : back.CenterIcon ? (
+                    <back.CenterIcon size={12} fill="currentColor" strokeWidth={0} className="relative z-3 pointer-events-none opacity-38" />
                   ) : null}
                 </div>
                 <span className={`text-[10px] font-medium ${isActive ? 'text-[#6ee08a]' : 'text-white/40'}`}>

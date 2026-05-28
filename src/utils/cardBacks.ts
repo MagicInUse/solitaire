@@ -14,22 +14,25 @@
  * style props so the project lint rule is satisfied.
  */
 
+import type { LucideIcon } from 'lucide-react'
+import { Club, Diamond, Heart, Spade, Sparkle } from 'lucide-react'
+
 export interface CardBackDefinition {
   id: string
   label: string
   /** Render the VQ branded logo in the centre (classic back only). */
   showLogo: boolean
-  /** Decorative text/symbol rendered in the centre when showLogo is false. */
-  centerIcon?: string
+  /** Lucide icon component rendered in the centre when showLogo is false. */
+  CenterIcon?: LucideIcon
 }
 
 export const CARD_BACKS: CardBackDefinition[] = [
-  { id: 'classic',  label: 'Classic',  showLogo: true },
-  { id: 'forest',   label: 'Forest',   showLogo: false, centerIcon: '♣' },
-  { id: 'ocean',    label: 'Ocean',    showLogo: false, centerIcon: '♦' },
-  { id: 'crimson',  label: 'Crimson',  showLogo: false, centerIcon: '♥' },
-  { id: 'midnight', label: 'Midnight', showLogo: false, centerIcon: '✦' },
-  { id: 'slate',    label: 'Slate',    showLogo: false, centerIcon: '♠' },
+  { id: 'classic', label: 'VeriQuery', showLogo: true },
+  { id: 'forest',   label: 'Forest',   showLogo: false, CenterIcon: Club },
+  { id: 'ocean',    label: 'Ocean',    showLogo: false, CenterIcon: Diamond },
+  { id: 'crimson',  label: 'Crimson',  showLogo: false, CenterIcon: Heart },
+  { id: 'midnight', label: 'Midnight', showLogo: false, CenterIcon: Sparkle },
+  { id: 'slate',    label: 'Slate',    showLogo: false, CenterIcon: Spade },
 ]
 
 /** Returns the matching definition, or the first (Classic) if not found. */

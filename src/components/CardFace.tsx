@@ -1,13 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { clsx } from 'clsx'
+import { Heart, Diamond, Club, Spade, type LucideIcon } from 'lucide-react'
 import type { Card } from '../types/cards'
 import vqLogo from '../assets/veriquery-logo.png'
 import { useOptionsStore } from '../store/useOptionsStore'
 import { getCardBack } from '../utils/cardBacks'
 
 const RANK_LABELS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as const
-const SUIT_SYMBOLS: Record<string, string> = {
-  hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠',
+const SUIT_ICONS: Record<string, LucideIcon> = {
+  hearts: Heart, diamonds: Diamond, clubs: Club, spades: Spade,
 }
 
 /** Props for {@link CardFace}. */
@@ -34,7 +35,7 @@ export function CardFace({ card }: CardFaceProps) {
 
   const isRed = card.suit === 'hearts' || card.suit === 'diamonds'
   const rankLabel = RANK_LABELS[card.rank]
-  const suitSymbol = SUIT_SYMBOLS[card.suit]
+  const SuitIcon = SUIT_ICONS[card.suit]
 
   return (
     <AnimatePresence initial={false} mode="wait">
@@ -61,12 +62,13 @@ export function CardFace({ card }: CardFaceProps) {
               alt=""
               draggable={false}
             />
-          ) : back.centerIcon ? (
-            <span
-              className="relative z-3 text-base select-none pointer-events-none opacity-35"
-            >
-              {back.centerIcon}
-            </span>
+          ) : back.CenterIcon ? (
+            <back.CenterIcon
+              size={16}
+              fill="currentColor"
+              strokeWidth={0}
+              className="relative z-3 pointer-events-none opacity-35"
+            />
           ) : null}
         </motion.div>
       ) : (
@@ -78,9 +80,13 @@ export function CardFace({ card }: CardFaceProps) {
           animate={{ scaleX: 1 }}
           transition={{ duration: 0.075, ease: 'easeOut' }}
         >
-          <span className="absolute text-[11px] font-bold leading-none top-0.75 left-1 font-georgia">{rankLabel}{suitSymbol}</span>
-          <span className="text-[22px] leading-none">{suitSymbol}</span>
-          <span className="absolute text-[11px] font-bold leading-none bottom-0.75 right-1 rotate-180 font-georgia">{rankLabel}{suitSymbol}</span>
+          <span className="absolute text-[11px] font-bold leading-none top-0.75 left-1 font-georgia flex items-center gap-[1px]">
+            {rankLabel}<SuitIcon size={9} fill="currentColor" strokeWidth={0} className="inline-block" />
+          </span>
+          <SuitIcon size={22} fill="currentColor" strokeWidth={0} />
+          <span className="absolute text-[11px] font-bold leading-none bottom-0.75 right-1 rotate-180 font-georgia flex items-center gap-[1px]">
+            {rankLabel}<SuitIcon size={9} fill="currentColor" strokeWidth={0} className="inline-block" />
+          </span>
         </motion.div>
       )}
     </AnimatePresence>

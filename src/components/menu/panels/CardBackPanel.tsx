@@ -51,12 +51,8 @@ export function CardBackPanel() {
                     alt=""
                     draggable={false}
                   />
-                ) : back.centerIcon ? (
-                  <span
-                    className="relative z-3 text-[12px] select-none pointer-events-none opacity-38"
-                  >
-                    {back.centerIcon}
-                  </span>
+                ) : back.CenterIcon ? (
+                  <back.CenterIcon size={12} fill="currentColor" strokeWidth={0} className="relative z-3 pointer-events-none opacity-38" />
                 ) : null}
               </div>
 

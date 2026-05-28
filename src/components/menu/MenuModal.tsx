@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { Spade, BookOpen, Palette, Settings, Trophy, X, type LucideIcon } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { NewGamePanel }     from './panels/NewGamePanel'
 import { RulesPanel }       from './panels/RulesPanel'
@@ -19,12 +20,12 @@ import { LeaderboardPanel } from './panels/LeaderboardPanel'
 
 type PanelId = 'new-game' | 'rules' | 'visuals' | 'options' | 'leaderboard'
 
-const NAV_ITEMS: { id: PanelId; label: string; icon: string }[] = [
-  { id: 'new-game',     label: 'New Game',     icon: '♠' },
-  { id: 'rules',        label: 'Rules',        icon: '♟' },
-  { id: 'visuals',      label: 'Visuals',      icon: '✦' },
-  { id: 'options',      label: 'Options',      icon: '⚙' },
-  { id: 'leaderboard',  label: 'Leaderboard',  icon: '★' },
+const NAV_ITEMS: { id: PanelId; label: string; Icon: LucideIcon }[] = [
+  { id: 'new-game',     label: 'New Game',     Icon: Spade },
+  { id: 'rules',        label: 'Rules',        Icon: BookOpen },
+  { id: 'visuals',      label: 'Visuals',      Icon: Palette },
+  { id: 'options',      label: 'Options',      Icon: Settings },
+  { id: 'leaderboard',  label: 'Leaderboard',  Icon: Trophy },
 ]
 
 interface MenuModalProps {
@@ -61,9 +62,7 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
                   : 'bg-transparent text-white/45 hover:text-white/70 hover:bg-white/5',
               ].join(' ')}
             >
-              <span className="text-[13px] w-4 text-center shrink-0">
-                {item.icon}
-              </span>
+              <item.Icon size={14} strokeWidth={1.75} className="shrink-0" />
               {item.label}
             </button>
           ))}
@@ -72,7 +71,7 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
             onClick={onClose}
             className="w-full text-left px-3 py-2.25 text-[12px] font-medium leading-snug flex items-center gap-2 cursor-pointer border-0 border-t border-white/8 mt-1 pt-2.5 bg-transparent text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors duration-150"
           >
-            <span className="text-[13px] w-4 text-center shrink-0">✕</span>
+            <X size={13} strokeWidth={2} className="shrink-0" />
             Close
           </button>
         </nav>
