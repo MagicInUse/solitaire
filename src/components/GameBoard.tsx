@@ -29,7 +29,7 @@ import { GameCanvas }  from "./GameCanvas"
 import { WinCascade }  from "./WinCascade"
 import { useStatsStore }          from "../store/useStatsStore"
 import { computeHints }           from "../utils/hints"
-import { calculateScore, formatTime } from "../utils/scoring"
+import { calculateScore, calculateVegasScore, formatVegasScore, formatTime } from "../utils/scoring"
 import { useTimer }               from "../hooks/useTimer"
 import { useSounds }              from "../hooks/useSounds"
 
@@ -83,13 +83,13 @@ function canMoveCards(
 export function GameBoard() {
   const {
     stock, waste, foundations, tableau,
-    drawFromStock, resetStock, moveCards, flipTableauTop,
+    drawFromStock, resetStock, moveCards, flipTableauTop, newGame,
     won, isDealing, setDealing, dealId,
     moveCount, undosUsed, activeHint, setActiveHint, undo,
   } = useGameStore()
   const drawId  = useGameStore((s) => s.drawId)
 
-  const { deckLocation, stockRecycles, drawMode, cardBackId, undoLimit, hintsEnabled } = useOptionsStore()
+  const { deckLocation, stockRecycles, drawMode, cardBackId, undoLimit, hintsEnabled, scoringMode } = useOptionsStore()
   const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
   const recycleCount = useGameStore((s) => s.recycleCount)
   const back = getCardBack(cardBackId)
@@ -99,14 +99,18 @@ export function GameBoard() {
 
   const { recordGameStarted, recordWin, recordLoss } = useStatsStore()
   const { playSfx } = useSounds()
+  // Timer runs for standard; for vegas/casual we still track elapsed for recordWin but don't display it
   const elapsed = useTimer(!won && !isDealing, dealId)
-  const score   = calculateScore({ drawMode: drawMode as 1 | 3, timeSeconds: elapsed, moves: moveCount, undosUsed })
+  const foundationCardCount = foundations.reduce((n, p) => n + p.length, 0)
+  const standardScore = calculateScore({ drawMode: drawMode as 1 | 3, timeSeconds: elapsed, moves: moveCount, undosUsed })
+  const vegasProfit   = calculateVegasScore(foundationCardCount)
 
   const { scale, layout } = useGameScale()
   const [dragSourceInfo, setDragSourceInfo] = useState<DragSourceInfo & { cards: Card[] } | null>(null)
   const [dragOverInfo, setDragOverInfo] = useState<{ toType: "tableau" | "foundation"; toIndex: number } | null>(null)
   const [autoCompleting, setAutoCompleting] = useState(false)
   const [hintCycleIdx, setHintCycleIdx] = useState(0)
+  const [deadGame, setDeadGame] = useState(false)
   // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
   const dragSourceInfoRef = useRef<(DragSourceInfo & { cards: Card[] }) | null>(null)
 
@@ -144,6 +148,7 @@ export function GameBoard() {
   useEffect(() => {
     setAutoCompleting(false)
     setHintCycleIdx(0)
+    setDeadGame(false)
   }, [dealId])
 
   // Auto-complete: step one card to foundation every 80 ms while running
@@ -176,6 +181,21 @@ export function GameBoard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoCompleting, won, tableau, foundations])
 
+  // Dead-game detection: no hints AND no way to draw new cards
+  // Stock having cards always means more draws are possible, so we only
+  // check after the stock is empty. Waste cards are only accessible via
+  // recycling — so if recycles are exhausted AND waste has no unplayed cards
+  // visible, the game is truly stuck.
+  useEffect(() => {
+    if (won || isDealing || autoCompleting) return
+    if (stock.length > 0) { setDeadGame(false); return }  // still cards to draw
+    const canStillRecycle = waste.length > 0 && canRecycle
+    if (canStillRecycle) { setDeadGame(false); return }   // can replenish stock
+    const hints = computeHints({ waste, foundations, tableau })
+    setDeadGame(hints.length === 0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting])
+
   // Reset hint cycle whenever the store clears the active hint (after any game action)
   useEffect(() => {
     if (!activeHint) setHintCycleIdx(0)
@@ -196,7 +216,15 @@ export function GameBoard() {
     if (!won) return
     prevWonRef.current = true
     playSfx('WIN')
-    recordWin({ drawMode: drawMode as 1 | 3, timeSeconds: elapsed, moves: moveCount, score, undosUsed })
+    const score = scoringMode === 'vegas' ? vegasProfit : standardScore
+    recordWin({
+      drawMode: drawMode as 1 | 3,
+      timeSeconds: elapsed,
+      moves: moveCount,
+      score,
+      undosUsed,
+      skipLeaderboard: scoringMode === 'casual',
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [won])
 
@@ -529,9 +557,16 @@ export function GameBoard() {
           {/* HUD: timer · score · moves · action buttons */}
           <div className="flex items-center h-[26px]">
             <div className="flex items-center gap-[10px] text-white/65 text-[11px] font-mono flex-1 min-w-0">
-              <span title="Time">&#9203; {formatTime(elapsed)}</span>
-              <span title="Score">&#9733; {score}</span>
-              <span title="Moves">{moveCount} mv</span>
+              {scoringMode === 'standard' && (
+                <><span title="Time">&#9203; {formatTime(elapsed)}</span>
+                <span title="Score">&#9733; {standardScore}</span></>
+              )}
+              {scoringMode === 'vegas' && (
+                <span title="Vegas profit" className={vegasProfit >= 0 ? 'text-emerald-400/80' : 'text-red-400/80'}>
+                  &#x1F4B5; {formatVegasScore(vegasProfit)}
+                </span>
+              )}
+              <span title="Moves">Moves: {moveCount}</span>
             </div>
             <div className="flex items-center gap-[4px]">
               <button
@@ -560,6 +595,17 @@ export function GameBoard() {
               )}
             </div>
           </div>
+
+          {/* Dead-game banner */}
+          {deadGame && !won && (
+            <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-red-950/60 border border-red-700/40 text-[11px]">
+              <span className="text-red-300/90">No moves left — this game can&apos;t be completed.</span>
+              <button
+                onClick={() => newGame()}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-red-700/50 hover:bg-red-600/60 text-red-100 font-medium transition-colors cursor-pointer border-0 text-[11px]"
+              >New Game</button>
+            </div>
+          )}
 
           {/* Tableau */}
           <div className="flex gap-[6px] items-start">

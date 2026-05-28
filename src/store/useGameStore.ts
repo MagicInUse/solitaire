@@ -85,12 +85,13 @@ function checkWon(foundations: [Pile, Pile, Pile, Pile]): boolean {
 }
 
 /** Captures a shallow-but-sufficient snapshot of the mutable board piles. */
-function snapshot(state: Pick<GameStore, 'stock' | 'waste' | 'foundations' | 'tableau'>): GameStateSnapshot {
+function snapshot(state: Pick<GameStore, 'stock' | 'waste' | 'foundations' | 'tableau' | 'moveCount'>): GameStateSnapshot {
   return {
     stock:       [...state.stock],
     waste:       [...state.waste],
     foundations: state.foundations.map((p) => [...p]) as [Pile, Pile, Pile, Pile],
     tableau:     state.tableau.map((p) => [...p]) as [Pile, Pile, Pile, Pile, Pile, Pile, Pile],
+    moveCount:   state.moveCount,
   }
 }
 
@@ -294,9 +295,9 @@ export const useGameStore = create<GameStore>()(
         const prev = history[history.length - 1]
         set({
           ...prev,
-          won:       false,
-          undosUsed: undosUsed + 1,
-          history:   history.slice(0, -1),
+          won:        false,
+          undosUsed:  undosUsed + 1,
+          history:    history.slice(0, -1),
           activeHint: null,
         })
       },

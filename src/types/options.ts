@@ -9,6 +9,14 @@ export type DrawMode = 1 | 3
 /** Which side of the board the stock + waste piles appear on. */
 export type DeckLocation = 'left' | 'right'
 
+/**
+ * Scoring/tracking mode for the current game.
+ * - `standard` — formula-based score, timer shown, recorded to leaderboard
+ * - `vegas`     — $-52 entry + $5 per foundation card; leaderboard shows profit
+ * - `casual`    — no timer, no score, win/loss streaks still tracked but no leaderboard entry
+ */
+export type ScoringMode = 'standard' | 'vegas' | 'casual'
+
 /** All configurable game settings. */
 export interface GameOptions {
   drawMode: DrawMode
@@ -24,6 +32,8 @@ export interface GameOptions {
   undoLimit: number | 'unlimited'
   /** Whether the Hint button is available during play. */
   hintsEnabled: boolean
+  /** Scoring/leaderboard mode. */
+  scoringMode: ScoringMode
 }
 
 export const DEFAULT_OPTIONS: GameOptions = {
@@ -35,4 +45,5 @@ export const DEFAULT_OPTIONS: GameOptions = {
   stockRecycles: 'unlimited',
   undoLimit: 'unlimited',
   hintsEnabled: true,
+  scoringMode: 'standard',
 }

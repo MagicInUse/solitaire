@@ -39,7 +39,10 @@ export interface GameState {
  * Intentionally the same shape as {@link GameState} — treated as a
  * semantic alias so the type system won't conflate the two usages.
  */
-export type GameStateSnapshot = Readonly<GameState>
+export interface GameStateSnapshot extends Readonly<GameState> {
+  /** Move count at the time of the snapshot — restored on undo. */
+  readonly moveCount: number
+}
 
 /**
  * Describes a valid move the hint system has identified for the player.

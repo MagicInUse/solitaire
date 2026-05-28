@@ -18,8 +18,9 @@ interface StatsStore extends GameStats {
   /**
    * Call when the player wins. Saves the entry, updates aggregate stats,
    * and keeps the leaderboard sorted by score (desc) within the cap.
+   * Pass `skipLeaderboard: true` for casual mode wins (streak/bests still updated).
    */
-  recordWin: (entry: Omit<LeaderboardEntry, 'id' | 'date'>) => void
+  recordWin: (entry: Omit<LeaderboardEntry, 'id' | 'date'> & { skipLeaderboard?: boolean }) => void
   /** Call when a new game starts mid-game (resets the win streak). */
   recordLoss: () => void
   /** Wipes all stats and leaderboard entries. */
@@ -37,15 +38,19 @@ export const useStatsStore = create<StatsStore>()(
 
       recordWin(entry) {
         set((s) => {
-          const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-          const date = new Date().toISOString()
-          const newEntry: LeaderboardEntry = { ...entry, id, date }
-
-          const leaderboard = [...s.leaderboard, newEntry]
-            .sort((a, b) => b.score - a.score)
-            .slice(0, MAX_LEADERBOARD_ENTRIES)
-
+          const { skipLeaderboard, ...entryData } = entry
           const newStreak = s.currentStreak + 1
+
+          const leaderboard = skipLeaderboard
+            ? s.leaderboard
+            : (() => {
+                const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+                const date = new Date().toISOString()
+                const newEntry: LeaderboardEntry = { ...entryData, id, date }
+                return [...s.leaderboard, newEntry]
+                  .sort((a, b) => b.score - a.score)
+                  .slice(0, MAX_LEADERBOARD_ENTRIES)
+              })()
 
           return {
             gamesWon: s.gamesWon + 1,

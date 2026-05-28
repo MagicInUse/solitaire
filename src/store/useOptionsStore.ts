@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { GameOptions, DrawMode, DeckLocation } from '../types/options'
+import type { GameOptions, DrawMode, DeckLocation, ScoringMode } from '../types/options'
 import { DEFAULT_OPTIONS } from '../types/options'
 
 interface OptionsStore extends GameOptions {
@@ -19,6 +19,7 @@ interface OptionsStore extends GameOptions {
   setStockRecycles: (v: number | 'unlimited') => void
   setUndoLimit: (v: number | 'unlimited') => void
   setHintsEnabled: (v: boolean) => void
+  setScoringMode: (v: ScoringMode) => void
 }
 
 export const useOptionsStore = create<OptionsStore>()(
@@ -33,6 +34,7 @@ export const useOptionsStore = create<OptionsStore>()(
       setStockRecycles:      (stockRecycles)      => set({ stockRecycles }),
       setUndoLimit:          (undoLimit)          => set({ undoLimit }),
       setHintsEnabled:       (hintsEnabled)       => set({ hintsEnabled }),
+      setScoringMode:        (scoringMode)        => set({ scoringMode }),
     }),
     {
       name: 'solitaire-options',

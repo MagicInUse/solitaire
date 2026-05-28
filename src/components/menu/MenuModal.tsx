@@ -42,7 +42,9 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
 
   return (
     <Modal open={open} onClose={onClose}>
-      <div className="flex min-h-[440px]">
+      {/* h-[min(540px,...)] = fixed 540 px on large screens; shrinks to fit on landscape phones.
+           The fixed height (not min-height) is what eliminates panel-switch jumping. */}
+      <div className="flex h-[min(540px,calc(100dvh-24px))]">
         {/* ── Sidebar nav ─────────────────────────────────────────────── */}
         <nav className="w-[116px] shrink-0 border-r border-white/8 py-2 flex flex-col">
           {NAV_ITEMS.map((item) => (
@@ -76,7 +78,8 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
         </nav>
 
         {/* ── Panel content ────────────────────────────────────────────── */}
-        <div className="flex-1 p-5 overflow-y-auto max-h-[520px]">
+        {/* min-h-0 lets this flex child honour the parent's fixed height and scroll internally. */}
+        <div className="flex-1 min-h-0 p-5 overflow-y-auto">
           {activePanel === 'new-game'    && <NewGamePanel    onClose={onClose} />}
           {activePanel === 'rules'       && <RulesPanel      />}
           {activePanel === 'visuals'     && <VisualsPanel    />}
