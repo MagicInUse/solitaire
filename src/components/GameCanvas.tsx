@@ -39,7 +39,7 @@ export function GameCanvas({ children }: GameCanvasProps) {
         className="absolute inset-0 flex items-center justify-center game-canvas-safe-center"
       >
         <motion.div
-          className="shrink-0 relative overflow-hidden"
+          className="shrink-0 relative overflow-visible"
           layoutRoot
           style={{
             width: canvasW,

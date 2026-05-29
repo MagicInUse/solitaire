@@ -12,7 +12,7 @@
 
 import type { Pile } from '../types/cards'
 import type { Hint } from '../types/cards'
-import { computeHints, filterUsefulHints } from './hints'
+import { computeHints, filterUsefulHints, isDeadGame } from './hints'
 
 /** A single action the AI should execute. */
 export type AIAction =
@@ -58,9 +58,18 @@ export function getAIMove({
   // 2. Draw from stock
   if (stock.length > 0) return { type: 'draw' }
 
-  // 3. Recycle waste → stock
+  // 3. Recycle waste → stock — but only if there is genuine progress buried in
+  //    the waste.  isDeadGame() checks every buried card against the current
+  //    (now unchangeable) board; if none can ever lead anywhere useful, recycling
+  //    would just spin the deck forever.  Checking here rather than relying on
+  //    the GameBoard useEffect avoids a one-render race where the AI recycles
+  //    before the deadGame prop has been updated.
   const canRecycle = stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
-  if (canRecycle && waste.length > 0) return { type: 'recycle' }
+  if (canRecycle && waste.length > 0) {
+    if (!isDeadGame({ stock, waste, foundations, tableau, canRecycle })) {
+      return { type: 'recycle' }
+    }
+  }
 
   // 4. Stuck
   return { type: 'idle' }

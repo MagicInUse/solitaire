@@ -148,18 +148,22 @@ function isValidRun(pile: Pile, startIndex: number): boolean {
  * A♠ tableau→foundation, repeat forever.
  */
 /**
- * Inlined, non-recursive usefulness check used only by isProductiveBackMove.
- * Applies the same tableau-move rules as filterUsefulHints but deliberately
- * skips all foundation→tableau back-moves to avoid mutual recursion.
+ * Collects the set of useful follow-up move keys available on the given board.
+ * Only considers non-foundation-source moves to prevent mutual recursion.
+ * Keys encode all hint fields so two identical moves produce the same string.
+ *
+ * excludeFromIndex / excludeCardIndex identify the single tableau→foundation
+ * circular reversal to skip (the just-placed card going straight back).
+ * Pass -1 for both when building a baseline with no exclusion.
  */
-function hasUsefulFollowUp(
+function collectUsefulFollowUpKeys(
   waste: Pile,
   foundations: HintableState['foundations'],
   tableau: HintableState['tableau'],
-  excludeFromType: 'tableau',
   excludeFromIndex: number,
   excludeCardIndex: number,
-): boolean {
+): Set<string> {
+  const keys = new Set<string>()
   const rawHints = computeHints({ waste, foundations, tableau })
   for (const fh of rawHints) {
     // Never recurse into foundation back-moves
@@ -168,23 +172,30 @@ function hasUsefulFollowUp(
     if (fh.toType === 'foundation') {
       // Skip if this is moving the just-placed card straight back = circular reversal
       if (
-        fh.fromType === excludeFromType &&
+        fh.fromType === 'tableau' &&
         fh.fromIndex === excludeFromIndex &&
         fh.cardIndex === excludeCardIndex
       ) continue
-      return true // Any other foundation move is real progress
+      keys.add(`${fh.fromType}:${fh.fromIndex ?? ''}:${fh.cardIndex}:foundation:${fh.toIndex}`)
+      continue
     }
 
     // fh.toType === 'tableau'
-    if (fh.fromType !== 'tableau') return true // waste → tableau: always useful
+    if (fh.fromType !== 'tableau') {
+      // waste → tableau: always useful
+      keys.add(`waste::${fh.cardIndex}:tableau:${fh.toIndex}`)
+      continue
+    }
 
     // tableau → tableau: only useful if reveals a hidden card or empties the column
     const srcPile = tableau[fh.fromIndex!]
     const revealsHidden = fh.cardIndex > 0 && !srcPile[fh.cardIndex - 1].faceUp
     const toEmpty = tableau[fh.toIndex].length === 0
-    if (toEmpty ? revealsHidden : (revealsHidden || fh.cardIndex === 0)) return true
+    if (toEmpty ? revealsHidden : (revealsHidden || fh.cardIndex === 0)) {
+      keys.add(`tableau:${fh.fromIndex}:${fh.cardIndex}:tableau:${fh.toIndex}`)
+    }
   }
-  return false
+  return keys
 }
 
 function isProductiveBackMove(
@@ -211,18 +222,26 @@ function isProductiveBackMove(
   // The placed card now sits at the top of simTableau[h.toIndex].
   const placedCardIndex = simTableau[h.toIndex].length - 1
 
-  // Check the resulting board for any useful move that is NOT just returning
-  // the placed card to a foundation (circular reversal).
-  // hasUsefulFollowUp intentionally skips foundation back-moves to prevent
-  // mutual recursion with filterUsefulHints.
-  return hasUsefulFollowUp(
+  // Collect useful moves available on the ORIGINAL board (before the back-move).
+  // These moves already existed — the back-move doesn't deserve credit for them.
+  const originalKeys = collectUsefulFollowUpKeys(waste, foundations, tableau, -1, -1)
+
+  // Collect useful moves on the SIMULATED board (post back-move), excluding
+  // the circular reversal that would immediately undo the back-move.
+  const simKeys = collectUsefulFollowUpKeys(
     waste,
     simFoundations,
     simTableau,
-    'tableau',
     h.toIndex,
     placedCardIndex,
   )
+
+  // The back-move is productive only if it unlocks at least one move that was
+  // NOT already available before it — i.e. it genuinely enables new progress.
+  for (const key of simKeys) {
+    if (!originalKeys.has(key)) return true
+  }
+  return false
 }
 
 export function filterUsefulHints(
