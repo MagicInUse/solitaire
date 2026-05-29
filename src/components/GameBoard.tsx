@@ -497,7 +497,14 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
         const initial = (() => {
           if (!animationsEnabled || !isNewCard) return false
-          if (wasNewDraw && wasEmptyFan) return { x: -fanX, y: -12, scale: 0.92 }
+          if (wasNewDraw && wasEmptyFan) return {
+            // Stack at the stock-adjacent edge of the container, then fan toward foundations.
+            // Left deck: stock is left → stack at leftmost (x = -fanX collapses all to 0).
+            // Right deck: stock is right → stack at rightmost (x fans out from (n-1)*FAN_OFFSET).
+            x: deckLocation === 'left' ? -fanX : (visibleWasteCount - 1 - i) * FAN_OFFSET,
+            y: -12,
+            scale: 0.92,
+          }
           // Subsequent draws: card slides out from behind the stock pile
           if (wasNewDraw) return {
             x: deckLocation === 'left' ? -(CARD_W + GAP) : (CARD_W + GAP),

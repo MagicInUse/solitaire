@@ -45,6 +45,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 ### Animations
 - **FLIP card transitions** — every card move (play, drag-drop, undo) uses Framer Motion `layoutId` FLIP so cards glide smoothly between piles; `layoutRoot` on the scaled canvas corrects FLIP math at any zoom level
 - **Draw from stock** — new waste card slides in horizontally from the stock direction (left-to-right or right-to-left depending on deck position setting)
+- **Initial fan reveal** — when the waste is empty and the first cards are drawn, all cards start stacked at the stock-adjacent edge and fan out toward the foundations; direction mirrors the deck position (right-side deck fans leftward, left-side deck fans rightward)
 - **Waste fan fold** — when a new draw arrives, the previous fan of cards collapses back toward the stock before the new card enters, giving a satisfying accordion effect
 - **Staggered fan reveal** — fanned waste cards enter with a 70 ms stagger (bottom card first) so the spread feels natural rather than all-at-once
 - **Recycle animation** — waste cards fly back to the stock pile in a pure CSS arc (no Framer Motion overhead); top card leads, each subsequent card follows with a 60 ms stagger; overlay fades out after the last card lands, then state resets
