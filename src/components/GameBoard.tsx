@@ -33,7 +33,8 @@ import { computeHints, filterUsefulHints, isDeadGame } from '../utils/hints'
 import { calculateScore, calculateVegasScore, formatVegasScore, formatTime } from "../utils/scoring"
 import { useTimer }               from "../hooks/useTimer"
 import { useSounds }              from "../hooks/useSounds"
-import { Timer, Star, Coins, Lightbulb, Undo2, Zap } from 'lucide-react'
+import { Timer, Star, Coins, Lightbulb, Undo2, Zap, Bot } from 'lucide-react'
+import { useAIPlayer } from '../hooks/useAIPlayer'
 
 
 // ─── Klondike move validation ──────────────────────────────────────────────
@@ -101,7 +102,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   } = useGameStore()
   const drawId  = useGameStore((s) => s.drawId)
 
-  const { deckLocation, stockRecycles, drawMode, cardBackId, undoLimit, hintsEnabled, scoringMode } = useOptionsStore()
+  const { deckLocation, stockRecycles, drawMode, cardBackId, undoLimit, hintsEnabled, scoringMode, showAI4ME } = useOptionsStore()
   const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
   const recycleCount = useGameStore((s) => s.recycleCount)
   const back = getCardBack(cardBackId)
@@ -123,6 +124,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [autoCompleting, setAutoCompleting] = useState(false)
   const [hintCycleIdx, setHintCycleIdx] = useState(0)
   const [deadGame, setDeadGame] = useState(false)
+  const { isAIPlaying, setIsAIPlaying } = useAIPlayer(deadGame)
   // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
   const dragSourceInfoRef = useRef<(DragSourceInfo & { cards: Card[] }) | null>(null)
 
@@ -161,6 +163,8 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
     setAutoCompleting(false)
     setHintCycleIdx(0)
     setDeadGame(false)
+    setIsAIPlaying(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId])
 
   // Auto-complete: step one card to foundation every 80 ms while running
@@ -373,7 +377,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   }
 
   function handleHint() {
-    const useful = filterUsefulHints(computeHints({ waste, foundations, tableau }), tableau, foundations)
+    const useful = filterUsefulHints(computeHints({ waste, foundations, tableau }), tableau, foundations, waste)
     if (useful.length === 0) { setActiveHint(null); setHintCycleIdx(0); return }
     const idx = hintCycleIdx % useful.length
     setActiveHint(useful[idx])
@@ -589,8 +593,21 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
               <button
                 className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors inline-flex items-center gap-1"
                 onClick={handleHint}
+                disabled={isAIPlaying}
                 title="Show hint"
               ><Lightbulb size={11} strokeWidth={2} /> Hint</button>
+              )}
+              {showAI4ME && (
+              <button
+                className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors inline-flex items-center gap-1 ${
+                  isAIPlaying
+                    ? 'bg-[#9C528B]/40 hover:bg-[#9C528B]/55 text-[#e8b8de]'
+                    : 'bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80'
+                }`}
+                onClick={() => setIsAIPlaying(v => !v)}
+                disabled={won || isDealing || autoCompleting}
+                title={isAIPlaying ? 'Stop AI4ME' : 'AI4ME: auto-play the game'}
+              ><Bot size={11} strokeWidth={2} /> AI4ME</button>
               )}
               {(canAutoComplete || autoCompleting) && (
                 <button
@@ -600,6 +617,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                       : 'bg-white/10 hover:bg-white/20 text-white/80'
                   }`}
                   onClick={() => setAutoCompleting(v => !v)}
+                  disabled={isAIPlaying}
                   title="Auto-complete"
                 ><Zap size={11} strokeWidth={2} /> Auto</button>
               )}

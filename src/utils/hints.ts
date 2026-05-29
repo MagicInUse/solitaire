@@ -147,8 +147,49 @@ function isValidRun(pile: Pile, startIndex: number): boolean {
  * Classic circular trap: move A♠ foundation→tableau, then hint says move
  * A♠ tableau→foundation, repeat forever.
  */
+/**
+ * Inlined, non-recursive usefulness check used only by isProductiveBackMove.
+ * Applies the same tableau-move rules as filterUsefulHints but deliberately
+ * skips all foundation→tableau back-moves to avoid mutual recursion.
+ */
+function hasUsefulFollowUp(
+  waste: Pile,
+  foundations: HintableState['foundations'],
+  tableau: HintableState['tableau'],
+  excludeFromType: 'tableau',
+  excludeFromIndex: number,
+  excludeCardIndex: number,
+): boolean {
+  const rawHints = computeHints({ waste, foundations, tableau })
+  for (const fh of rawHints) {
+    // Never recurse into foundation back-moves
+    if (fh.fromType === 'foundation') continue
+
+    if (fh.toType === 'foundation') {
+      // Skip if this is moving the just-placed card straight back = circular reversal
+      if (
+        fh.fromType === excludeFromType &&
+        fh.fromIndex === excludeFromIndex &&
+        fh.cardIndex === excludeCardIndex
+      ) continue
+      return true // Any other foundation move is real progress
+    }
+
+    // fh.toType === 'tableau'
+    if (fh.fromType !== 'tableau') return true // waste → tableau: always useful
+
+    // tableau → tableau: only useful if reveals a hidden card or empties the column
+    const srcPile = tableau[fh.fromIndex!]
+    const revealsHidden = fh.cardIndex > 0 && !srcPile[fh.cardIndex - 1].faceUp
+    const toEmpty = tableau[fh.toIndex].length === 0
+    if (toEmpty ? revealsHidden : (revealsHidden || fh.cardIndex === 0)) return true
+  }
+  return false
+}
+
 function isProductiveBackMove(
   h: Hint,
+  waste: Pile,
   foundations: HintableState['foundations'],
   tableau: HintableState['tableau'],
 ): boolean {
@@ -156,33 +197,39 @@ function isProductiveBackMove(
   if (srcPile.length === 0) return false
   const card = srcPile[srcPile.length - 1]
 
-  // After card lands, things of rank (card.rank - 1) opposite colour can go on it.
-  // If rank - 1 < 1 (i.e. Aces) nothing can ever go on top → always circular.
-  const neededRank = card.rank - 1
-  if (neededRank < 1) return false
+  // Aces on foundation: nothing can ever land on top of them → always circular.
+  if (card.rank - 1 < 1) return false
 
-  for (let col = 0; col < 7; col++) {
-    if (col === h.toIndex) continue // skip destination column itself
-    const pile = tableau[col]
-    if (pile.length === 0) continue
-    const top = pile[pile.length - 1]
-    if (!top.faceUp) continue
-    if (top.rank !== neededRank) continue
-    if (isRed(top) === isRed(card)) continue // must be opposite colour
+  // Simulate the back-move: card leaves foundation, lands on tableau[h.toIndex].
+  const simFoundations = foundations.map((p, i) =>
+    i === h.fromIndex ? p.slice(0, -1) : p
+  ) as HintableState['foundations']
+  const simTableau = tableau.map((p, i) =>
+    i === h.toIndex ? [...p, { ...card, faceUp: true }] : p
+  ) as HintableState['tableau']
 
-    // This top card could land on the moved card.  Is doing so productive?
-    const hasHiddenBelow = pile.slice(0, pile.length - 1).some(c => !c.faceUp)
-    const emptiesColumn = pile.length === 1
-    if (hasHiddenBelow || emptiesColumn) return true
-  }
+  // The placed card now sits at the top of simTableau[h.toIndex].
+  const placedCardIndex = simTableau[h.toIndex].length - 1
 
-  return false
+  // Check the resulting board for any useful move that is NOT just returning
+  // the placed card to a foundation (circular reversal).
+  // hasUsefulFollowUp intentionally skips foundation back-moves to prevent
+  // mutual recursion with filterUsefulHints.
+  return hasUsefulFollowUp(
+    waste,
+    simFoundations,
+    simTableau,
+    'tableau',
+    h.toIndex,
+    placedCardIndex,
+  )
 }
 
 export function filterUsefulHints(
   hints: Hint[],
   tableau: HintableState['tableau'],
   foundations: HintableState['foundations'],
+  waste: Pile = [],
 ): Hint[] {
   const filtered = hints.filter(h => {
     // Non-tableau destination (e.g. foundation) → always keep
@@ -193,18 +240,22 @@ export function filterUsefulHints(
     if (h.fromType !== 'tableau') return true
 
     const srcPile = tableau[h.fromIndex!]
-    const hasHiddenBelow = srcPile.slice(0, h.cardIndex).some(c => !c.faceUp)
+    // Only the card at (cardIndex - 1) is directly exposed when this stack
+    // is lifted away.  Checking any hidden card deeper in the column is wrong:
+    // those cards are still buried under face-up cards that this move doesn't
+    // touch, so the move makes zero progress on revealing them.
+    const revealsHidden = h.cardIndex > 0 && !srcPile[h.cardIndex - 1].faceUp
     const toEmpty = tableau[h.toIndex].length === 0
 
     if (toEmpty) {
       // Moving to an empty column: only useful when it reveals a hidden card.
       // (All-face-up King stacks shuffling between empty slots = circular trap.)
-      return hasHiddenBelow
+      return revealsHidden
     }
 
     // Moving to a non-empty column: useful when it reveals a hidden card OR
     // when it empties the source column (creates a new open slot for a King).
-    return hasHiddenBelow || h.cardIndex === 0
+    return revealsHidden || h.cardIndex === 0
   })
 
   // Foundation back-moves are a last resort.  When any waste/tableau hint is
@@ -219,7 +270,7 @@ export function filterUsefulHints(
 
   const productiveBackMoves = filtered
     .filter(h => h.fromType === 'foundation')
-    .filter(h => isProductiveBackMove(h, foundations, tableau))
+    .filter(h => isProductiveBackMove(h, waste, foundations, tableau))
   return productiveBackMoves.slice(0, 1)
 }
 
@@ -263,6 +314,7 @@ export function isDeadGame({
     computeHints({ waste, foundations, tableau }),
     tableau,
     foundations,
+    waste,
   )
   if (hints.length > 0) return false
 
@@ -299,6 +351,7 @@ export function isDeadGame({
           computeHints({ waste: simWaste, foundations, tableau: simTableau }),
           simTableau,
           foundations,
+          simWaste,
         )
         if (follow.length > 0) return true
       }

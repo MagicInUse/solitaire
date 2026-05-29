@@ -10,9 +10,10 @@ import { useStatsStore }     from '../../../store/useStatsStore'
 import { useInstallPrompt }  from '../../../hooks/useInstallPrompt'
 import { Switch }  from '../../ui/Switch'
 import { Button }  from '../../ui/Button'
+import type { AISpeed } from '../../../types/options'
 
 export function OptionsPanel() {
-  const { deckLocation, setDeckLocation, hintsEnabled, setHintsEnabled } = useOptionsStore()
+  const { deckLocation, setDeckLocation, hintsEnabled, setHintsEnabled, aiSpeed, setAiSpeed, showAI4ME, setShowAI4ME } = useOptionsStore()
   const clearStats = useStatsStore((s) => s.clearStats)
   const { canInstall, install } = useInstallPrompt()
   const [confirmClear, setConfirmClear] = useState(false)
@@ -77,6 +78,14 @@ export function OptionsPanel() {
         <p className="text-white/30 text-[11px] leading-relaxed -mt-2">
           Show the Hint button during play. Disable for a more challenging experience.
         </p>
+        <Switch
+          checked={showAI4ME}
+          onChange={setShowAI4ME}
+          label="Show AI4ME Button"
+        />
+        <p className="text-white/30 text-[11px] leading-relaxed -mt-2">
+          Show the AI4ME auto-player button during play.
+        </p>
       </section>
 
       {/* Deck position */}
@@ -115,6 +124,32 @@ export function OptionsPanel() {
               </button>
             )
           })}
+        </div>
+      </section>
+
+      {/* AI4ME speed */}
+      <section className="flex flex-col gap-3">
+        <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
+          AI4ME Speed
+        </h3>
+        <p className="text-white/30 text-[11px] leading-relaxed -mt-1">
+          How fast the AI4ME auto-player moves. Slow and Normal flash each card before moving so you can follow along.
+        </p>
+        <div className="flex gap-2">
+          {(['slow', 'normal', 'fast'] as AISpeed[]).map((speed) => (
+            <button
+              key={speed}
+              onClick={() => setAiSpeed(speed)}
+              className={[
+                'flex-1 py-2 rounded-lg border text-[12px] font-medium capitalize transition-colors cursor-pointer',
+                aiSpeed === speed
+                  ? 'bg-[#9C528B]/20 border-[#9C528B]/45 text-[#e8b8de]'
+                  : 'bg-white/4 border-white/10 text-white/50 hover:border-white/22',
+              ].join(' ')}
+            >
+              {speed}
+            </button>
+          ))}
         </div>
       </section>
 

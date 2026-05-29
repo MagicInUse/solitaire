@@ -17,6 +17,9 @@ export type DeckLocation = 'left' | 'right'
  */
 export type ScoringMode = 'standard' | 'vegas' | 'casual'
 
+/** How fast the AI4ME auto-player executes moves. */
+export type AISpeed = 'slow' | 'normal' | 'fast'
+
 /** All configurable game settings. */
 export interface GameOptions {
   drawMode: DrawMode
@@ -34,6 +37,10 @@ export interface GameOptions {
   hintsEnabled: boolean
   /** Scoring/leaderboard mode. */
   scoringMode: ScoringMode
+  /** Speed of the AI4ME auto-player. */
+  aiSpeed: AISpeed
+  /** Whether the AI4ME button is visible during play. */
+  showAI4ME: boolean
 }
 
 export const DEFAULT_OPTIONS: GameOptions = {
@@ -46,4 +53,6 @@ export const DEFAULT_OPTIONS: GameOptions = {
   undoLimit: 'unlimited',
   hintsEnabled: true,
   scoringMode: 'standard',
+  aiSpeed: 'normal',
+  showAI4ME: true,
 }
