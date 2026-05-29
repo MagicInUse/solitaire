@@ -424,7 +424,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
           : 'No more recycles'
       }
     >
-      {stock.length > 0 ? (
+      {stock.length > 0 || isRecycling ? (
         <div
           className={`relative w-full h-full rounded-[5px] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] overflow-hidden flex items-center justify-center card-back-${back.id}`}
         >
@@ -491,7 +491,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
         // On play (layoutId FLIP handles movement), exit instantly so the FLIP isn't hidden.
         const exitVariants = animationsEnabled ? {
           exit: (isDraw: boolean) => isDraw
-            ? { x: -fanX, opacity: 0, transition: { duration: 0.15, ease: 'easeIn' } }
+            ? { x: -fanX, opacity: 0, transition: { duration: 0.15, ease: 'easeIn' as const } }
             : { opacity: 1, transition: { duration: 0 } },
         } : undefined
 

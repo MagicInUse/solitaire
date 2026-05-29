@@ -54,5 +54,5 @@ export const DEFAULT_OPTIONS: GameOptions = {
   hintsEnabled: true,
   scoringMode: 'standard',
   aiSpeed: 'normal',
-  showAI4ME: true,
+  showAI4ME: false,
 }
