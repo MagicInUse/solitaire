@@ -317,6 +317,15 @@ type DeadGameParams = HintableState & {
  * unchanged board always produces the same result, so the buried-card check
  * (step 3) is both necessary and sufficient — without it the banner never
  * appears when recycles remain.
+ *
+ * Draw-order note: resetStock() reverses the waste pile into the stock, so
+ * waste[0] (the bottom) is drawn FIRST after a recycle, waste[1] second, etc.
+ * When simulating what the board looks like at the moment buried card waste[i]
+ * is drawn and played, only waste[0..i-1] could already be sitting in the
+ * waste pile (cards drawn before it).  Using waste.slice(0, i) for simWaste
+ * captures this correctly — the original top card (waste[last]) won't appear
+ * in the waste until much later in the draw cycle and must NOT be mistakenly
+ * presented as the current waste top during the follow-up hint check.
  */
 export function isDeadGame({
   stock,
@@ -353,19 +362,26 @@ export function isDeadGame({
   //    column, remove card from waste) and check whether filterUsefulHints
   //    finds at least one subsequent useful move.  Only if it does is the game
   //    considered alive.
+  //
+  //    simWaste uses waste.slice(0, i) — cards at indices 0..i-1 are the ones
+  //    that have been drawn (but not yet played) before waste[i] is reached in
+  //    the recycled draw order.  The original waste top (waste[last]) is not
+  //    accessible until the very end of the next draw cycle and must not appear
+  //    in the simulated waste top during this follow-up check.
   if (waste.length > 0 && canRecycle) {
     const buried = waste.slice(0, waste.length > 1 ? -1 : undefined)
-    const canUnblock = buried.some(card => {
+    const canUnblock = buried.some((card, i) => {
       // Foundation — always progress
       if (foundations.some(f => canGoToFoundation(card, f))) return true
 
-      // Tableau — simulate and verify a follow-up move exists
+      // Tableau — simulate and verify a follow-up move exists.
+      // simWaste = only the cards drawn before this one in the recycled deck.
+      const simWaste = waste.slice(0, i)
       for (let ti = 0; ti < 7; ti++) {
         if (!canGoToTableau(card, tableau[ti])) continue
-        const simTableau = tableau.map((p, i) =>
-          i === ti ? [...p, { ...card, faceUp: true }] : p
+        const simTableau = tableau.map((p, ti2) =>
+          ti2 === ti ? [...p, { ...card, faceUp: true }] : p
         ) as typeof tableau
-        const simWaste = waste.filter(c => c.id !== card.id)
         const follow = filterUsefulHints(
           computeHints({ waste: simWaste, foundations, tableau: simTableau }),
           simTableau,
@@ -378,6 +394,58 @@ export function isDeadGame({
       return false
     })
     if (canUnblock) return false
+
+    // Second-order check: two waste cards played in sequence.
+    //
+    // The first-order check evaluates each buried card independently against
+    // the original tableau.  It misses the case where cardA (index i) creates
+    // the ONLY landing spot for cardB (index j > i) by being placed first —
+    // i.e. cardB can land on top of cardA, which doesn't exist on the original
+    // board.  Placing cardA on a column is the only new landing spot it opens
+    // (waste→tableau never reveals hidden cards or frees other columns), so the
+    // only new tableau destination for cardB is the column where cardA now sits.
+    //
+    // Simulation: for each (i, ta) where waste[i] can land on tableau[ta]:
+    //   build simTableauA, then for each j > i check if waste[j] can land on
+    //   top of cardA (tb == ta).  If yes, run the follow-up hint check on the
+    //   resulting board with the correct intermediate waste state.
+    //
+    // simWasteAB = cards drawn between A and B (indices i+1..j-1), which are
+    // sitting in the waste pile when B becomes the waste top to be played.
+    if (waste.length >= 2) {
+      for (let i = 0; i < waste.length - 1; i++) {
+        const cardA = waste[i]
+        for (let ta = 0; ta < 7; ta++) {
+          if (!canGoToTableau(cardA, tableau[ta])) continue
+          const simTableauA = tableau.map((p, k) =>
+            k === ta ? [...p, { ...cardA, faceUp: true }] : p
+          ) as typeof tableau
+
+          for (let j = i + 1; j < waste.length; j++) {
+            const cardB = waste[j]
+            // The only new spot cardA's placement created is on top of itself (column ta).
+            // Landing spots on every other column are unchanged from the original board
+            // and would have been caught by the first-order check for cardB.
+            if (!canGoToTableau(cardB, simTableauA[ta])) continue
+
+            const simTableauAB = simTableauA.map((p, k) =>
+              k === ta ? [...p, { ...cardB, faceUp: true }] : p
+            ) as typeof tableau
+
+            // Cards in the waste when B is played: drawn before A (0..i-1) plus
+            // cards drawn between A and B (i+1..j-1). cardA has already been played.
+            const simWasteAB = [...waste.slice(0, i), ...waste.slice(i + 1, j)]
+            const follow = filterUsefulHints(
+              computeHints({ waste: simWasteAB, foundations, tableau: simTableauAB }),
+              simTableauAB,
+              foundations,
+              simWasteAB,
+            )
+            if (follow.length > 0) return false
+          }
+        }
+      }
+    }
   }
 
   return true
