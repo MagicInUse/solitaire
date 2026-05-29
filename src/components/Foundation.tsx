@@ -1,9 +1,12 @@
+import { useState, useEffect, useRef } from 'react'
 import { useDroppable } from "@dnd-kit/core"
 import { clsx } from "clsx"
+import { motion, AnimatePresence } from 'framer-motion'
 import { CardView } from "./CardView"
 import { CardFace } from "./CardFace"
 import type { Card, Pile } from "../types/cards"
 import type { DragSourceInfo } from "./TableauColumn"
+import { useOptionsStore } from '../store/useOptionsStore'
 
 const SUIT_SYMBOLS = ["\u2665", "\u2666", "\u2663", "\u2660"]
 
@@ -44,6 +47,21 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
     data: { toType: "foundation", toIndex: index },
   })
 
+  const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
+
+  // Snap-bounce: trigger when a new card arrives on this foundation pile
+  const [bouncing, setBouncing] = useState(false)
+  const prevLenRef = useRef(pile.length)
+  useEffect(() => {
+    if (pile.length > prevLenRef.current) {
+      // Delay matches the layoutId animation duration (0.15s) so bounce fires after the card lands
+      const id = setTimeout(() => setBouncing(true), 155)
+      prevLenRef.current = pile.length
+      return () => clearTimeout(id)
+    }
+    prevLenRef.current = pile.length
+  }, [pile.length])
+
   const topCard = pile[pile.length - 1]
 
   // Show ghost when the top foundation card is being dragged back to tableau
@@ -57,24 +75,43 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
       {isGhosted ? (
         <div className="w-full h-full rounded-[5px] border-2 border-dashed border-white/40 flex items-center justify-center text-[19px] text-white/40">{SUIT_SYMBOLS[index]}</div>
       ) : topCard ? (
-        <CardView
-          card={topCard}
-          cardIndex={pile.length - 1}
-          sourceType="foundation"
-          sourceIndex={index}
-          scale={scale}
-        />
+        <motion.div
+          initial={false}
+          animate={{ scale: animationsEnabled && bouncing ? [1, 1.08, 1] : 1 }}
+          transition={bouncing
+            ? { duration: 0.25, times: [0, 0.35, 1], ease: ['easeOut', 'easeIn'] }
+            : { duration: 0 }
+          }
+          onAnimationComplete={() => { if (bouncing) setBouncing(false) }}
+        >
+          <CardView
+            card={topCard}
+            cardIndex={pile.length - 1}
+            sourceType="foundation"
+            sourceIndex={index}
+            scale={scale}
+          />
+        </motion.div>
       ) : (
         <div className="w-full h-full rounded-[5px] border-2 border-dashed border-white/40 flex items-center justify-center text-[19px] text-white/40">{SUIT_SYMBOLS[index]}</div>
-      )}
-      {previewCard && (
-        <div className="absolute inset-0 opacity-55 pointer-events-none rounded-[5px] overflow-hidden">
-          <CardFace card={previewCard} />
-        </div>
       )}
       {hinted && (
         <div className="absolute inset-0 rounded-[5px] pointer-events-none hint-glow-card" />
       )}
+      <AnimatePresence>
+        {previewCard && (
+          <motion.div
+            key="foundation-preview"
+            className="absolute inset-0 pointer-events-none rounded-[5px] overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.55 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.10 }}
+          >
+            <CardFace card={previewCard} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

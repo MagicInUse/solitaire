@@ -1,5 +1,6 @@
 import { useDroppable } from '@dnd-kit/core'
 import { clsx } from 'clsx'
+import { motion, AnimatePresence } from 'framer-motion'
 import { CardView } from './CardView'
 import { CardFace } from './CardFace'
 import { CARD_H, TABLEAU_AVAILABLE_H_PORTRAIT } from '../constants/canvas'
@@ -128,15 +129,21 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
           )
         })
       )}
-      {previewCards?.map((card, j) => (
-        <div
-          key={`preview-${card.id}`}
-          className="w-12 h-16.75 absolute left-0 opacity-55 pointer-events-none rounded-[5px] overflow-hidden"
-          style={{ top: previewBaseTop + j * fuOffset, zIndex: pile.length + j }}
-        >
-          <CardFace card={card} />
-        </div>
-      ))}
+      <AnimatePresence>
+        {previewCards?.map((card, j) => (
+          <motion.div
+            key={`preview-${card.id}`}
+            className="w-12 h-16.75 absolute left-0 pointer-events-none rounded-[5px] overflow-hidden"
+            style={{ top: previewBaseTop + j * fuOffset, zIndex: pile.length + j }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.55 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.10 }}
+          >
+            <CardFace card={card} />
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   )
 }

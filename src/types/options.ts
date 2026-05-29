@@ -46,7 +46,7 @@ export interface GameOptions {
 export const DEFAULT_OPTIONS: GameOptions = {
   drawMode: 1,
   deckLocation: 'left',
-  cardBackId: 'classic',
+  cardBackId: 'veriquery',
   animationsEnabled: true,
   sfxEnabled: false,
   stockRecycles: 'unlimited',

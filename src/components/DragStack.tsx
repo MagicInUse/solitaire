@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import type { Card } from '../types/cards'
 import { CardFace } from './CardFace'
 import { CARD_W, CARD_H, FACEUP_OFFSET } from '../constants/canvas'
@@ -29,7 +30,12 @@ export function DragStack({ cards, scale }: DragStackProps) {
 
   return (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', display: 'inline-block' }}>
-      <div style={{ position: 'relative', width: CARD_W, height: totalHeight }}>
+      <motion.div
+        initial={{ scale: 1 }}
+        animate={{ scale: 1.05 }}
+        transition={{ duration: 0.12, ease: 'easeOut' }}
+        style={{ position: 'relative', width: CARD_W, height: totalHeight }}
+      >
         {cards.map((card, i) => (
           <div
             key={card.id}
@@ -38,7 +44,7 @@ export function DragStack({ cards, scale }: DragStackProps) {
             <CardFace card={card} />
           </div>
         ))}
-      </div>
+      </motion.div>
     </div>
   )
 }

@@ -10,19 +10,21 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Spade, BookOpen, Palette, Settings, Trophy, X, type LucideIcon } from 'lucide-react'
+import { Spade, BookOpen, Palette, Settings, Trophy, Lightbulb, X, type LucideIcon } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { NewGamePanel }     from './panels/NewGamePanel'
 import { RulesPanel }       from './panels/RulesPanel'
 import { VisualsPanel }     from './panels/VisualsPanel'
 import { OptionsPanel }     from './panels/OptionsPanel'
+import { AssistPanel }      from './panels/AssistPanel'
 import { LeaderboardPanel } from './panels/LeaderboardPanel'
 
-type PanelId = 'new-game' | 'rules' | 'visuals' | 'options' | 'leaderboard'
+type PanelId = 'new-game' | 'rules' | 'visuals' | 'options' | 'assist' | 'leaderboard'
 
 const NAV_ITEMS: { id: PanelId; label: string; Icon: LucideIcon }[] = [
   { id: 'new-game',     label: 'New Game',     Icon: Spade },
   { id: 'rules',        label: 'Rules',        Icon: BookOpen },
+  { id: 'assist',       label: 'Hints',        Icon: Lightbulb },
   { id: 'visuals',      label: 'Visuals',      Icon: Palette },
   { id: 'options',      label: 'Options',      Icon: Settings },
   { id: 'leaderboard',  label: 'Leaderboard',  Icon: Trophy },
@@ -83,6 +85,7 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
           {activePanel === 'rules'       && <RulesPanel      />}
           {activePanel === 'visuals'     && <VisualsPanel    />}
           {activePanel === 'options'     && <OptionsPanel    />}
+          {activePanel === 'assist'      && <AssistPanel     />}
           {activePanel === 'leaderboard' && <LeaderboardPanel />}
         </div>
       </div>

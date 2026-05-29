@@ -7,7 +7,7 @@ import { CardFace } from "./CardFace"
 import { CARD_W, CARD_H } from "../constants/canvas"
 import { useOptionsStore } from "../store/useOptionsStore"
 import { useGameStore } from "../store/useGameStore"
-import { recentlyDropped } from "../utils/dragTracking"
+import { recentlyDropped, justUndid } from "../utils/dragTracking"
 
 /** Props for {@link CardView}. */
 interface CardViewProps {
@@ -101,11 +101,15 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
       onDoubleClick={onDoubleClick ? () => onDoubleClick(card, cardIndex, sourceType, sourceIndex) : undefined}
       onTouchEnd={onDoubleClick ? handleTouchEnd : undefined}
       layoutId={layoutId}
+      className={hinted ? 'hint-glow-card' : undefined}
       initial={animationsEnabled && isDealing ? { opacity: 0, y: -10 } : false}
       animate={{ opacity: isDragging ? 0 : 1, y: 0 }}
-      transition={isDealing
-        ? { delay: dealDelay, duration: 0.18, ease: 'easeOut' }
-        : { duration: 0.15, ease: 'easeOut' }
+      transition={
+        justUndid.current && animationsEnabled
+          ? { type: 'spring', stiffness: 380, damping: 28 }
+          : isDealing
+          ? { delay: dealDelay, duration: 0.18, ease: 'easeOut' }
+          : { duration: 0.15, ease: 'easeOut' }
       }
       style={{
         width: CARD_W,
@@ -117,7 +121,6 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
         userSelect: "none",
         cursor: card.faceUp && draggable ? "grab" : "default",
         flexShrink: 0,
-        ...(hinted ? { boxShadow: '0 0 0 2px rgba(253,224,71,0.9), 0 0 10px 2px rgba(253,224,71,0.35)' } : {}),
       }}
     >
       <CardFace card={card} />

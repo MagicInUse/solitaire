@@ -20,14 +20,14 @@ import { Club, Diamond, Heart, Spade, Sparkle } from 'lucide-react'
 export interface CardBackDefinition {
   id: string
   label: string
-  /** Render the VQ branded logo in the centre (classic back only). */
+  /** Render the VQ branded logo in the centre (VeriQuery back only). */
   showLogo: boolean
   /** Lucide icon component rendered in the centre when showLogo is false. */
   CenterIcon?: LucideIcon
 }
 
 export const CARD_BACKS: CardBackDefinition[] = [
-  { id: 'classic', label: 'VeriQuery', showLogo: true },
+  { id: 'veriquery', label: 'VeriQuery', showLogo: true },
   { id: 'forest',   label: 'Forest',   showLogo: false, CenterIcon: Club },
   { id: 'ocean',    label: 'Ocean',    showLogo: false, CenterIcon: Diamond },
   { id: 'crimson',  label: 'Crimson',  showLogo: false, CenterIcon: Heart },
@@ -35,7 +35,7 @@ export const CARD_BACKS: CardBackDefinition[] = [
   { id: 'slate',    label: 'Slate',    showLogo: false, CenterIcon: Spade },
 ]
 
-/** Returns the matching definition, or the first (Classic) if not found. */
+/** Returns the matching definition, or the first (VeriQuery) if not found. */
 export function getCardBack(id: string): CardBackDefinition {
   return CARD_BACKS.find((b) => b.id === id) ?? CARD_BACKS[0]
 }

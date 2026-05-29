@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { CANVAS_W, CANVAS_H, CANVAS_W_PORTRAIT, CANVAS_H_PORTRAIT } from '../constants/canvas'
 import { useGameScale } from '../hooks/useGameScale'
 
@@ -37,17 +38,18 @@ export function GameCanvas({ children }: GameCanvasProps) {
       <div
         className="absolute inset-0 flex items-center justify-center game-canvas-safe-center"
       >
-        <div
+        <motion.div
           className="shrink-0 relative overflow-hidden"
+          layoutRoot
           style={{
             width: canvasW,
             height: canvasH,
-            transform: `scale(${scale})`,
+            scale: scale,
             transformOrigin: 'center center',
           }}
         >
           {children}
-        </div>
+        </motion.div>
       </div>
     </div>
   )

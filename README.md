@@ -42,6 +42,15 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Deck position** — stock + waste on the left or right
 - **Hints toggle** — show or hide the hint button
 
+### Animations
+- **FLIP card transitions** — every card move (play, drag-drop, undo) uses Framer Motion `layoutId` FLIP so cards glide smoothly between piles; `layoutRoot` on the scaled canvas corrects FLIP math at any zoom level
+- **Draw from stock** — new waste card slides in horizontally from the stock direction (left-to-right or right-to-left depending on deck position setting)
+- **Waste fan fold** — when a new draw arrives, the previous fan of cards collapses back toward the stock before the new card enters, giving a satisfying accordion effect
+- **Staggered fan reveal** — fanned waste cards enter with a 70 ms stagger (bottom card first) so the spread feels natural rather than all-at-once
+- **Recycle animation** — waste cards fly back to the stock pile in a pure CSS arc (no Framer Motion overhead); top card leads, each subsequent card follows with a 60 ms stagger; overlay fades out after the last card lands, then state resets
+- **Undo spring** — undone cards snap back with a spring (`stiffness: 380, damping: 28`) for a tactile "rubber-band" feel
+- **Hint pulse** — hinted cards glow with a looping plum-coloured pulse so the suggestion is impossible to miss
+
 ### Layout
 - **Adaptive canvas** — fixed 390 × 390 (landscape) or 390 × 750 (portrait) logical canvas, CSS-scaled to fit any viewport; scale capped at 2.5× on large screens
 - **Portrait & landscape** — layout mode detected reliably on iOS (uses `document.documentElement` dimensions to avoid stale `window.innerWidth` on rotation)

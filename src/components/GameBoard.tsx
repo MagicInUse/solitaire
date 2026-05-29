@@ -12,18 +12,20 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { LayoutGroup, motion } from "framer-motion"
+import { LayoutGroup, motion, AnimatePresence } from "framer-motion"
 import type { Card, Suit } from "../types/cards"
 import vqLogo from '../assets/veriquery-logo.png'
 import { useGameStore }    from "../store/useGameStore"
 import { useOptionsStore } from "../store/useOptionsStore"
 import { getCardBack }     from "../utils/cardBacks"
+import { CARD_W, GAP }     from '../constants/canvas'
 import { useGameScale }    from "../hooks/useGameScale"
 import { TableauColumn }   from "./TableauColumn"
 import type { DragSourceInfo } from "./TableauColumn"
 import { Foundation }  from "./Foundation"
 import { CardView }    from "./CardView"
-import { recentlyDropped } from "../utils/dragTracking"
+import { recentlyDropped, justUndid } from "../utils/dragTracking"
+import { RecycleAnimation } from './RecycleAnimation'
 import { DragStack }   from "./DragStack"
 import { GameCanvas }  from "./GameCanvas"
 import { WinCascade }     from "./WinCascade"
@@ -124,14 +126,16 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [autoCompleting, setAutoCompleting] = useState(false)
   const [hintCycleIdx, setHintCycleIdx] = useState(0)
   const [deadGame, setDeadGame] = useState(false)
+  const [isRecycling, setIsRecycling] = useState(false)
   const { isAIPlaying, setIsAIPlaying } = useAIPlayer(deadGame)
   // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
   const dragSourceInfoRef = useRef<(DragSourceInfo & { cards: Card[] }) | null>(null)
 
   // Waste fan animation tracking refs
-  const prevDrawIdRef       = useRef(drawId)
-  const prevVisibleIdsRef   = useRef(new Set<string>())
-  const isFirstRenderRef    = useRef(true)
+  const prevDrawIdRef            = useRef(drawId)
+  const prevVisibleIdsRef        = useRef(new Set<string>())
+  const prevWasteVisibleCountRef = useRef(0)
+  const isFirstRenderRef         = useRef(true)
   // Stats tracking refs
   const prevWonRef          = useRef(false)
   const statsGameTrackedRef = useRef(false)
@@ -155,6 +159,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
     isFirstRenderRef.current = false
     prevDrawIdRef.current = drawId
     const count = drawMode === 1 ? Math.min(1, waste.length) : Math.min(3, waste.length)
+    prevWasteVisibleCountRef.current = count
     prevVisibleIdsRef.current = new Set(waste.slice(-count).map(c => c.id))
   })
 
@@ -192,7 +197,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
     const id = setTimeout(() => {
       moveCards({ fromType: 'tableau', fromIndex: move.colIndex, cardIndex: move.cardIndex, toType: 'foundation', toIndex: move.foundationIdx })
       playSfx('CARD_PLACE')
-    }, 80)
+    }, 120)
     return () => clearTimeout(id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoCompleting, won, tableau, foundations])
@@ -394,17 +399,23 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
       drawFromStock()
       playSfx('CARD_DRAW')
     } else if (canRecycle) {
-      resetStock()
+      if (animationsEnabled) {
+        setIsRecycling(true)
+      } else {
+        resetStock()
+      }
       playSfx('CARD_DRAW')
     }
   }
 
   // ── Top-row elements assembled as variables so we can reorder them ──────
   const stockEl = (
-    <div
+    <motion.div
       key="stock"
       className="w-12 h-16.75 shrink-0 cursor-pointer"
       onClick={handleStockClick}
+      whileTap={animationsEnabled ? { scale: 0.9 } : undefined}
+      transition={{ duration: 0.10, ease: 'easeOut' }}
       title={
         stock.length > 0
           ? 'Draw'
@@ -436,7 +447,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
           &#x21BA;
         </div>
       )}
-    </div>
+    </motion.div>
   )
 
   // ── Waste pile fan display ────────────────────────────────────────────────
@@ -453,6 +464,8 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const isDraggingNow = dragSourceInfo !== null
   const wasNewDraw    = !isFirstRenderRef.current && !isDraggingNow && drawId !== prevDrawIdRef.current
   const prevVisibleIds = prevVisibleIdsRef.current
+  // True when the waste fan had no visible cards before this draw (first reveal).
+  const wasEmptyFan   = prevWasteVisibleCountRef.current === 0
 
   const wasteEl = (
     <div
@@ -460,6 +473,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
       className="relative h-16.75 shrink-0"
       style={{ width: wasteContainerW }}
     >
+      <AnimatePresence custom={wasNewDraw && !wasEmptyFan && animationsEnabled}>
       {waste.slice(-visibleWasteCount).map((card, i) => {
         const cardIdx  = waste.length - visibleWasteCount + i
         const isTop    = i === visibleWasteCount - 1
@@ -473,24 +487,42 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
         //   reveal — newly uncovered card fades/slides in from the left
         // Once settled, animate is always { x:0, y:0, scale:1, opacity:1 } so Framer Motion
         // has nothing to re-animate on drag re-renders, eliminating the spam.
+        // Exit: fold fan to a stack when a new draw replaces these cards.
+        // On play (layoutId FLIP handles movement), exit instantly so the FLIP isn't hidden.
+        const exitVariants = animationsEnabled ? {
+          exit: (isDraw: boolean) => isDraw
+            ? { x: -fanX, opacity: 0, transition: { duration: 0.15, ease: 'easeIn' } }
+            : { opacity: 1, transition: { duration: 0 } },
+        } : undefined
+
         const initial = (() => {
           if (!animationsEnabled || !isNewCard) return false
-          if (wasNewDraw) return { x: -fanX, y: -12, scale: 0.92 }
+          if (wasNewDraw && wasEmptyFan) return { x: -fanX, y: -12, scale: 0.92 }
+          // Subsequent draws: card slides out from behind the stock pile
+          if (wasNewDraw) return {
+            x: deckLocation === 'left' ? -(CARD_W + GAP) : (CARD_W + GAP),
+            opacity: 0,
+          }
           return { opacity: 0 }
         })()
 
         const transition = (() => {
           if (!animationsEnabled || !isNewCard) return { duration: 0 }
-          if (wasNewDraw) return {
+          if (wasNewDraw && wasEmptyFan) return {
             y:     { duration: 0.10, ease: 'easeOut' },
             scale: { duration: 0.10, ease: 'easeOut' },
             x:     { delay: 0.15, duration: 0.20, ease: 'easeOut' },
+          }
+          // Stagger each card: back card (i=0) slides in first, top card (i=n-1) last
+          if (wasNewDraw) return {
+            x:       { delay: i * 0.07, duration: 0.18, ease: 'easeOut' },
+            opacity: { delay: i * 0.07, duration: 0.12 },
           }
           return { opacity: { duration: 0.18, ease: 'easeOut' } }
         })()
 
         return (
-          <div
+          <motion.div
             key={card.id}
             className="absolute top-0"
             style={{
@@ -501,6 +533,8 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                 ? 'left 220ms ease-out'
                 : 'none',
             }}
+            variants={exitVariants}
+            exit={animationsEnabled ? "exit" : undefined}
           >
             <motion.div
               initial={initial}
@@ -517,9 +551,10 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                 hinted={isTop && activeHint?.fromType === 'waste'}
               />
             </motion.div>
-          </div>
+          </motion.div>
         )
       })}
+      </AnimatePresence>
     </div>
   )
 
@@ -546,8 +581,8 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   const topRowItems =
     deckLocation === 'left'
-      ? [stockEl, wasteEl, spacer, ...foundationEls]
-      : [...foundationEls, spacer, wasteEl, stockEl]
+      ? [stockEl, isRecycling ? <div key="waste-placeholder" className="shrink-0 h-16.75" style={{ width: wasteContainerW }} /> : wasteEl, spacer, ...foundationEls]
+      : [...foundationEls, spacer, isRecycling ? <div key="waste-placeholder" className="shrink-0 h-16.75" style={{ width: wasteContainerW }} /> : wasteEl, stockEl]
 
   return (
     <LayoutGroup id="board">
@@ -585,7 +620,11 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
             <div className="flex items-center gap-1">
               <button
                 className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors inline-flex items-center gap-1"
-                onClick={() => undo()}
+                onClick={() => {
+                  justUndid.current = true
+                  undo()
+                  requestAnimationFrame(() => { justUndid.current = false })
+                }}
                 disabled={!canUndo}
                 title="Undo"
               ><Undo2 size={11} strokeWidth={2} /> Undo</button>
@@ -662,6 +701,15 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
             scale transform — otherwise positions and card sizes are in
             unscaled screen pixels and look tiny / wrong on desktop. */}
         <WinCascade active={won} foundations={foundations} onNewGame={() => newGame()} onOpenSettings={onOpenSettings} />
+        {/* RecycleAnimation overlays the top row while waste cards fly back to stock */}
+        {isRecycling && (
+          <RecycleAnimation
+            visibleWasteCount={visibleWasteCount}
+            deckLocation={deckLocation as 'left' | 'right'}
+            cardBackId={cardBackId}
+            onComplete={() => { resetStock(); setIsRecycling(false) }}
+          />
+        )}
       </GameCanvas>
 
       {/* DragOverlay is portalled to document.body (screen space).

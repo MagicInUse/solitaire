@@ -1,6 +1,6 @@
 /**
  * @module VisualsPanel
- * All cosmetic settings: deck position, card backs, and animations.
+ * All cosmetic settings: card backs and animations.
  */
 
 import { useOptionsStore } from '../../../store/useOptionsStore'
@@ -9,10 +9,7 @@ import { Switch } from '../../ui/Switch'
 import vqLogo from '../../../assets/veriquery-logo.png'
 
 export function VisualsPanel() {
-  const {
-    cardBackId, setCardBackId,
-    animationsEnabled, setAnimationsEnabled,
-  } = useOptionsStore()
+  const { cardBackId, setCardBackId, animationsEnabled, setAnimationsEnabled } = useOptionsStore()
 
   return (
     <div className="flex flex-col gap-6">
