@@ -53,7 +53,7 @@ export function RecycleAnimation({ visibleWasteCount, deckLocation, cardBackId, 
   const wasteStartX =
     deckLocation === 'left'
       ? PADDING + CARD_W + GAP
-      : CANVAS_W - PADDING - wasteContainerW
+      : CANVAS_W - PADDING - CARD_W - GAP - wasteContainerW
 
   // top card (highest i) starts first; bottom card (i=0, isLast) starts last
   const cards = Array.from({ length: visibleWasteCount }, (_, i) => {
