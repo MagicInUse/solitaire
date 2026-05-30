@@ -5,9 +5,9 @@ import { CSS } from "@dnd-kit/utilities"
 import type { Card } from "../types/cards"
 import { CardFace } from "./CardFace"
 import { CARD_W, CARD_H } from "../constants/canvas"
-import { useOptionsStore } from "../store/useOptionsStore"
-import { useGameStore } from "../store/useGameStore"
-import { recentlyDropped, justUndid } from "../utils/dragTracking"
+import { useOptionsStore }   from "../store/useOptionsStore"
+import { useGameStore }      from "../store/useGameStore"
+import { useAnimationStore } from "../store/useAnimationStore"
 
 /** Props for {@link CardView}. */
 interface CardViewProps {
@@ -58,8 +58,10 @@ interface CardViewProps {
  */
 export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick, dealDelay = 0, hinted = false }: CardViewProps) {
   const lastTapRef = useRef<number>(0)
-  const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
-  const isDealing = useGameStore((s) => s.isDealing)
+  const animationsEnabled  = useOptionsStore((s) => s.animationsEnabled)
+  const isDealing          = useGameStore((s) => s.isDealing)
+  const isRecentlyDropped  = useAnimationStore((s) => s.droppedIds.has(card.id))
+  const justUndid          = useAnimationStore((s) => s.justUndid)
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
@@ -91,7 +93,7 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
   // Disabled during drag, during deal, and for one frame after a drop (recentlyDropped)
   // to prevent Framer Motion from re-animating the card's pre-drag position → new position,
   // which would double-play the drag movement the user just performed.
-  const layoutId = animationsEnabled && !isDragging && !isDealing && !recentlyDropped.has(card.id) ? card.id : undefined
+  const layoutId = animationsEnabled && !isDragging && !isDealing && !isRecentlyDropped ? card.id : undefined
 
   return (
     <motion.div
@@ -105,7 +107,7 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
       initial={animationsEnabled && isDealing ? { opacity: 0, y: -10 } : false}
       animate={{ opacity: isDragging ? 0 : 1, y: 0 }}
       transition={
-        justUndid.current && animationsEnabled
+        justUndid && animationsEnabled
           ? { type: 'spring', stiffness: 380, damping: 28 }
           : isDealing
           ? { delay: dealDelay, duration: 0.18, ease: 'easeOut' }

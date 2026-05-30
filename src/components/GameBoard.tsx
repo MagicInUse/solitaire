@@ -24,7 +24,7 @@ import { TableauColumn }   from "./TableauColumn"
 import type { DragSourceInfo } from "./TableauColumn"
 import { Foundation }  from "./Foundation"
 import { CardView }    from "./CardView"
-import { recentlyDropped, justUndid } from "../utils/dragTracking"
+import { useAnimationStore } from '../store/useAnimationStore'
 import { RecycleAnimation } from './RecycleAnimation'
 import { DragStack }   from "./DragStack"
 import { GameCanvas }  from "./GameCanvas"
@@ -222,8 +222,9 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
     // Mark all dragged cards so their layoutId is skipped for one render,
     // preventing Framer Motion from replaying the drag movement as a second animation.
-    for (const c of snapshot.cards) recentlyDropped.add(c.id)
-    requestAnimationFrame(() => { for (const c of snapshot.cards) recentlyDropped.delete(c.id) })
+    const droppedIds = snapshot.cards.map(c => c.id)
+    useAnimationStore.getState().markDropped(droppedIds)
+    requestAnimationFrame(() => { useAnimationStore.getState().clearDropped(droppedIds) })
 
     if (snapshot.sourceType === "tableau" && snapshot.sourceIndex !== undefined) {
       flipTableauTop(snapshot.sourceIndex)
@@ -500,9 +501,9 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
               <button
                 className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors inline-flex items-center gap-1"
                 onClick={() => {
-                  justUndid.current = true
+                  useAnimationStore.getState().setJustUndid(true)
                   undo()
-                  requestAnimationFrame(() => { justUndid.current = false })
+                  requestAnimationFrame(() => { useAnimationStore.getState().setJustUndid(false) })
                 }}
                 disabled={!canUndo}
                 title="Undo"
