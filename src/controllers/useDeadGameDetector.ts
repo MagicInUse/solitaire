@@ -24,20 +24,44 @@ export function useDeadGameDetector(autoCompleting: boolean): [boolean, React.Di
   const isDealing   = useGameStore((s) => s.isDealing)
   const dealId      = useGameStore((s) => s.dealId)
   const recycleCount  = useGameStore((s) => s.recycleCount)
+  const drawMode      = useOptionsStore((s) => s.drawMode) as 1 | 3
   const stockRecycles = useOptionsStore((s) => s.stockRecycles)
 
   const [deadGame, setDeadGame] = useState(false)
+  // When the user dismisses the modal we suppress re-detection until the board
+  // actually changes (so the modal doesn't immediately reappear).
+  const [dismissedAt, setDismissedAt] = useState<string | null>(null)
 
   const canRecycle = stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
 
   // Reset on every new game
-  useEffect(() => { setDeadGame(false) }, [dealId])
+  useEffect(() => { setDeadGame(false); setDismissedAt(null) }, [dealId])
 
   useEffect(() => {
     if (won || isDealing || autoCompleting) return
-    setDeadGame(isDeadGame({ stock, waste, foundations, tableau, canRecycle }))
+
+    // Build a cheap fingerprint of board state
+    const boardFingerprint = `${stock.length}/${waste.length}/${recycleCount}/${tableau.map(c => c.length).join(',')}`
+
+    // If the user dismissed at this exact board state, don't re-fire
+    if (dismissedAt === boardFingerprint) return
+
+    if (isDeadGame({ stock, waste, foundations, tableau, canRecycle, drawMode })) {
+      setDeadGame(true)
+    } else {
+      setDeadGame(false)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting, canRecycle])
 
-  return [deadGame, setDeadGame]
+  // Wrap setDeadGame to record dismissal fingerprint when user manually sets false
+  const handleSetDeadGame: React.Dispatch<React.SetStateAction<boolean>> = (value) => {
+    if (value === false || (typeof value === 'function' && value(true) === false)) {
+      const boardFingerprint = `${stock.length}/${waste.length}/${recycleCount}/${tableau.map(c => c.length).join(',')}`
+      setDismissedAt(boardFingerprint)
+    }
+    setDeadGame(value)
+  }
+
+  return [deadGame, handleSetDeadGame]
 }

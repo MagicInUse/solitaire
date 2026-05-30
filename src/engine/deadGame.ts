@@ -150,24 +150,27 @@ function isBackMoveProductive(
 type DeadGameParams = BoardState & {
   stock: Pile
   canRecycle: boolean
+  drawMode?: 1 | 3
 }
 
 /**
- * Returns true when the game is genuinely unwinnable and no further progress
- * is possible regardless of how many recycles remain.
+ * Returns true when the game is genuinely unwinnable.
  *
- * Three-step check:
- *  1. Stock has cards → can always draw → not dead.
- *  2. Current board has any direct-progress hint or productive back-move → not dead.
- *  3. If recycling is possible and waste has cards, simulate each buried waste
- *     card being played:
- *     a. If it goes straight to a foundation → not dead.
- *     b. If it lands on any tableau column, check the resulting board for
- *        at least one direct-progress move → not dead.
- *     c. Second-order: two waste cards played in sequence.
+ * Uses a bounded BFS over reachable board states, correctly modelling draw-3
+ * accessibility (only the top of each draw group is playable per pass).
  *
- * Key design: isDirectProgress (not filterUsefulHints) is used throughout so
- * that display-side filtering decisions cannot cause false dead-game positives.
+ * The search expands:
+ *  - Draw: pop drawMode cards from stock onto waste (if stock non-empty)
+ *  - Recycle: flip waste back into stock (if canRecycle and stock empty)
+ *  - Play top waste card to any valid tableau column or foundation
+ *  - Any tableau→tableau or tableau→foundation move that is direct progress
+ *
+ * "Direct progress" (isDirectProgress) means the game state is advancing:
+ * card to foundation, waste card played, hidden card revealed, or column emptied.
+ * If any reachable state has a direct-progress move, the game is NOT dead.
+ *
+ * Depth is capped to avoid excessive computation. The cap is generous enough
+ * to see through multi-card draw-3 cycles but bounded for performance.
  */
 export function isDeadGame({
   stock,
@@ -175,88 +178,136 @@ export function isDeadGame({
   foundations,
   tableau,
   canRecycle,
+  drawMode = 3,
 }: DeadGameParams): boolean {
-  // 1. Draws still available
+  // ── Fast path: draws still available ──────────────────────────────────────
   if (stock.length > 0) return false
 
-  // 2. Check current board
-  const rawHints = computeHints({ waste, foundations, tableau })
-  const hasProgress = rawHints.some(h =>
+  // ── Step 2: immediate board check ─────────────────────────────────────────
+  // Uses isDirectProgress (which counts waste→tableau as immediate progress)
+  // so the player always has agency when any current move is available.
+  const initialHints = computeHints({ waste, foundations, tableau })
+  const hasImmediateProgress = initialHints.some(h =>
     h.fromType === 'foundation'
       ? isBackMoveProductive(h, waste, foundations, tableau)
       : isDirectProgress(h, tableau),
   )
-  if (hasProgress) return false
+  if (hasImmediateProgress) return false
 
-  // 3. Buried waste cards + recycling
-  if (waste.length > 0 && canRecycle) {
-    // First-order: each buried waste card individually.
-    //
-    // Draw-order note: resetStock() reverses waste into stock, so waste[0]
-    // is drawn FIRST after a recycle.  When card waste[i] is played, ALL
-    // other waste cards remain accessible: cards below i are already in the
-    // new waste pile, and cards above i will appear in subsequent draws.
-    // simWaste must therefore include BOTH: [...waste[0..i-1], ...waste[i+1..n-1]].
-    // Using only waste.slice(0, i) (the old logic) missed the "direction shift"
-    // in draw-3 where the card above i (the original visible top) becomes
-    // accessible again after a recycle and may now be playable on the modified
-    // tableau — causing a false dead-game positive.
-    const buried = waste.slice(0, waste.length > 1 ? -1 : undefined)
+  // If no recycle and no stock, no moves can ever surface → dead.
+  if (!canRecycle) return true
 
-    const canUnblock = buried.some((card, i) => {
-      // Foundation destination: always progress
-      if (foundations.some(f => canPlaceOnFoundation(card, f))) return true
+  // ── Step 3: BFS over states reachable by draws, one recycle, and moves ────
+  //
+  // The BFS explores what becomes accessible after drawing and recycling.
+  // "Truly not dead" (→ return false) requires reaching a state that has:
+  //   • Any move to foundation (waste→foundation or tableau→foundation)
+  //   • Any tableau→tableau move that reveals a hidden card
+  //   • Any tableau→tableau move that empties the source column
+  //
+  // waste→tableau alone is NOT treated as "not dead" here — it is added to
+  // the queue so we can continue searching from the resulting state. This
+  // prevents false "not dead" on dead-end shuffles (e.g. a buried card can
+  // land on the tableau but afterward nothing useful can happen).
+  //
+  // Step 2 already handled the case where an immediate waste→tableau move is
+  // available (game not dead), so we only reach the BFS when no current move
+  // exists on the board at all.
 
-      // Tableau destination: simulate placement, check for a follow-up progress move.
-      // Include ALL remaining cards (above and below i) in simWaste so the
-      // follow-up check can see cards that become accessible through subsequent draws.
-      const simWaste = [...waste.slice(0, i), ...waste.slice(i + 1)]
+  type BFSNode = {
+    stock: Pile
+    waste: Pile
+    tableau: Tableau
+    recyclesLeft: number
+    depth: number
+  }
+
+  const MAX_DEPTH  = 80
+  const MAX_STATES = 4000
+
+  const toKey = (s: Pile, w: Pile, t: Tableau): string =>
+    s.map(c => `${c.suit[0]}${c.rank}`).join(',') + '/' +
+    w.map(c => `${c.suit[0]}${c.rank}`).join(',') + '/' +
+    t.map(col => col.map(c => `${c.suit[0]}${c.rank}${c.faceUp ? 'u' : 'd'}`).join(',')).join('|')
+
+  const visited = new Set<string>()
+  const queue: BFSNode[] = []
+
+  const enqueue = (node: BFSNode) => {
+    if (node.depth > MAX_DEPTH) return
+    const key = toKey(node.stock, node.waste, node.tableau)
+    if (visited.has(key)) return
+    visited.add(key)
+    queue.push(node)
+  }
+
+  enqueue({ stock, waste, tableau, recyclesLeft: 1, depth: 0 })
+
+  let explored = 0
+  while (queue.length > 0 && explored < MAX_STATES) {
+    const node = queue.shift()!
+    explored++
+
+    // ── Draw ────────────────────────────────────────────────────────────────
+    if (node.stock.length > 0) {
+      const count    = Math.min(drawMode, node.stock.length)
+      const newStock = node.stock.slice(0, node.stock.length - count)
+      const drawn    = node.stock.slice(node.stock.length - count).map(c => ({ ...c, faceUp: true }))
+      enqueue({ ...node, stock: newStock, waste: [...node.waste, ...drawn], depth: node.depth + 1 })
+      // Don't skip other actions — waste top from *before* the draw may also be playable.
+    }
+
+    // ── Recycle (stock exhausted) ────────────────────────────────────────────
+    if (node.stock.length === 0 && node.recyclesLeft > 0 && node.waste.length > 0) {
+      const newStock = [...node.waste].reverse().map(c => ({ ...c, faceUp: false }))
+      enqueue({ stock: newStock, waste: [], tableau: node.tableau, recyclesLeft: node.recyclesLeft - 1, depth: node.depth + 1 })
+    }
+
+    // ── Play top waste card ──────────────────────────────────────────────────
+    if (node.waste.length > 0) {
+      const top      = node.waste[node.waste.length - 1]
+      const newWaste = node.waste.slice(0, -1)
+
+      // To foundation = TRUE progress → not dead
+      if (foundations.some(f => canPlaceOnFoundation(top, f))) return false
+
+      // To tableau = add to queue (not immediate "not dead" — may be dead-end shuffle)
       for (let ti = 0; ti < 7; ti++) {
-        if (!canPlaceOnTableau(card, tableau[ti])) continue
-        const simTableau = tableau.map((p, k) =>
-          k === ti ? [...p, { ...card, faceUp: true }] : p
+        if (!canPlaceOnTableau(top, node.tableau[ti])) continue
+        const newTab = node.tableau.map((p, k) =>
+          k === ti ? [...p, { ...top, faceUp: true }] : p
         ) as Tableau
-        const follow = computeHints({ waste: simWaste, foundations, tableau: simTableau })
-        if (follow.some(h => h.fromType !== 'foundation' && isDirectProgress(h, simTableau))) {
-          return true
-        }
+        enqueue({ ...node, waste: newWaste, tableau: newTab, depth: node.depth + 1 })
       }
-      return false
-    })
-    if (canUnblock) return false
+    }
 
-    // Second-order: two buried waste cards played in sequence.
-    //
-    // Placing cardA creates the only new tableau landing spot (on top of
-    // itself).  We check if cardB can stack on cardA and whether the
-    // resulting board has a follow-up direct-progress move.
-    if (waste.length >= 2) {
-      for (let i = 0; i < waste.length - 1; i++) {
-        const cardA = waste[i]
-        for (let ta = 0; ta < 7; ta++) {
-          if (!canPlaceOnTableau(cardA, tableau[ta])) continue
-          const simTableauA = tableau.map((p, k) =>
-            k === ta ? [...p, { ...cardA, faceUp: true }] : p
-          ) as Tableau
+    // ── Tableau moves ────────────────────────────────────────────────────────
+    const tabHints = computeHints({ waste: node.waste, foundations, tableau: node.tableau })
+    for (const h of tabHints) {
+      if (h.fromType !== 'tableau') continue
 
-          for (let j = i + 1; j < waste.length; j++) {
-            const cardB = waste[j]
-            if (!canPlaceOnTableau(cardB, simTableauA[ta])) continue
+      // Tableau → foundation = TRUE progress → not dead
+      if (h.toType === 'foundation') return false
 
-            const simTableauAB = simTableauA.map((p, k) =>
-              k === ta ? [...p, { ...cardB, faceUp: true }] : p
-            ) as Tableau
+      if (h.toType !== 'tableau') continue
 
-            // Waste state when both A and B are played: cards before A,
-            // between A and B, and after B — all remain accessible.
-            const simWasteAB = [...waste.slice(0, i), ...waste.slice(i + 1, j), ...waste.slice(j + 1)]
-            const follow = computeHints({ waste: simWasteAB, foundations, tableau: simTableauAB })
-            if (follow.some(h => h.fromType !== 'foundation' && isDirectProgress(h, simTableauAB))) {
-              return false
-            }
-          }
-        }
-      }
+      const src         = node.tableau[h.fromIndex!]
+      const revealsHidden = h.cardIndex > 0 && !src[h.cardIndex - 1].faceUp
+      const emptiesSource = h.cardIndex === 0
+
+      // Reveals hidden card or empties column = TRUE progress → not dead
+      if (revealsHidden || emptiesSource) return false
+
+      // Pure shuffle: add to queue — it might change accessibility for future draws
+      const moving = src.slice(h.cardIndex)
+      const newSrc = src.slice(0, h.cardIndex)
+      const newDst = [...node.tableau[h.toIndex], ...moving]
+      const newTab = node.tableau.map((p, k) => {
+        if (k === h.fromIndex) return newSrc
+        if (k === h.toIndex)   return newDst
+        return p
+      }) as Tableau
+      enqueue({ ...node, tableau: newTab, depth: node.depth + 1 })
     }
   }
 
