@@ -30,6 +30,12 @@ export interface AIState {
   stockRecycles: number | 'unlimited'
   won: boolean
   drawMode: 1 | 3
+  /**
+   * When set, suppresses tableau→foundation hints from this tableau column
+   * for one move.  Set after a productive back-move so the AI plays the
+   * follow-up move instead of immediately reversing the back-move.
+   */
+  skipTableauFoundationCol?: number | null
 }
 
 /**
@@ -45,16 +51,27 @@ export function getAIMove({
   stockRecycles,
   won,
   drawMode,
+  skipTableauFoundationCol,
 }: AIState): AIAction {
   if (won) return { type: 'idle' }
 
   // 1. Use first useful hint (foundations first, already sorted by computeHints)
-  const hints = filterUsefulHints(
+  let hints = filterUsefulHints(
     computeHints({ waste, foundations, tableau }),
     tableau,
     foundations,
     waste,
   )
+
+  // After a productive back-move, skip the immediate reversal for one move so
+  // the follow-up that justified the back-move can execute first.
+  if (skipTableauFoundationCol != null) {
+    const withoutReversal = hints.filter(
+      h => !(h.fromType === 'tableau' && h.fromIndex === skipTableauFoundationCol && h.toType === 'foundation'),
+    )
+    if (withoutReversal.length > 0) hints = withoutReversal
+  }
+
   if (hints.length > 0) return { type: 'move', hint: hints[0] }
 
   // 2. Draw from stock

@@ -66,23 +66,25 @@ describe('isDirectProgress', () => {
       expect(isDirectProgress(h, t)).toBe(true)
     })
 
-    it('true when empties the source column (cardIndex === 0)', () => {
+    it('true when empties the source column into a non-empty destination (cardIndex === 0)', () => {
       const t = emptyTableau()
-      // column 0: [K♠, Q♥, J♠] all face-up, moving all to empty column 1
-      t[0] = [card('spades', 13), card('hearts', 12), card('clubs', 11)]
+      // column 0: [7♠] alone, moving to column 1 which has [8♥] — empties source into non-empty dest
+      t[0] = [card('spades', 7)]
+      t[1] = [card('hearts', 8)]
       const h = hint('tableau', 0, 0, 'tableau', 1)
       expect(isDirectProgress(h, t)).toBe(true)
     })
 
-    it('true when empties source AND destination is empty (unlike filterUsefulHints)', () => {
-      // This is the key difference from filterUsefulHints:
-      // filterUsefulHints(toEmpty) only allows revealsHidden.
-      // isDirectProgress allows emptiesSource regardless of destination.
+    it('false when empties source into empty destination (K-shuffle, no net gain)', () => {
+      // Moving a K-run from one column to an empty column is a pure shuffle:
+      // the source empties but the dest fills — zero net new empty columns.
+      // filterUsefulHints excludes this, and isDirectProgress now agrees.
+      // The BFS will still enqueue this state and explore it, just not short-circuit.
       const t = emptyTableau()
       t[0] = [card('spades', 13), card('hearts', 12)]
-      // t[1] is empty — moving whole column (cardIndex 0) to empty dest
+      // t[1] is empty — moving whole K-run (cardIndex 0) to empty dest
       const h = hint('tableau', 0, 0, 'tableau', 1)
-      expect(isDirectProgress(h, t)).toBe(true)
+      expect(isDirectProgress(h, t)).toBe(false)
     })
 
     it('false for pure shuffle (no reveal, no empty source)', () => {

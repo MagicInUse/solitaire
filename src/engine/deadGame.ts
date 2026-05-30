@@ -59,9 +59,10 @@ export function isDirectProgress(h: Hint, tableau: Tableau): boolean {
   if (h.fromType === 'foundation') return false  // handled by isBackMoveProductive
 
   // tableau → tableau
-  const src          = tableau[h.fromIndex!]
+  const src           = tableau[h.fromIndex!]
+  const dest          = tableau[h.toIndex]
   const revealsHidden = h.cardIndex > 0 && !src[h.cardIndex - 1].faceUp
-  const emptiesSource = h.cardIndex === 0
+  const emptiesSource = h.cardIndex === 0 && dest.length > 0  // moving to empty is a pure K-shuffle
   return revealsHidden || emptiesSource
 }
 
@@ -291,14 +292,19 @@ export function isDeadGame({
 
       if (h.toType !== 'tableau') continue
 
-      const src         = node.tableau[h.fromIndex!]
-      const revealsHidden = h.cardIndex > 0 && !src[h.cardIndex - 1].faceUp
-      const emptiesSource = h.cardIndex === 0
+      const src           = node.tableau[h.fromIndex!]
+      const revealsHidden  = h.cardIndex > 0 && !src[h.cardIndex - 1].faceUp
+      const emptiesSource  = h.cardIndex === 0 && node.tableau[h.toIndex].length > 0
 
-      // Reveals hidden card or empties column = TRUE progress → not dead
+      // Reveals hidden card or empties column into non-empty dest = TRUE progress → not dead
       if (revealsHidden || emptiesSource) return false
 
-      // Pure shuffle: add to queue — it might change accessibility for future draws
+      // Pure shuffle: add to queue only when the AI can actually play the move.
+      // Moves to an empty column (K→empty or partial-run→empty) are excluded by
+      // filterUsefulHints — the AI never plays them — so exploring them here would
+      // cause false "not dead" (BFS finds downstream progress the AI can't reach).
+      if (node.tableau[h.toIndex].length === 0) continue
+
       const moving = src.slice(h.cardIndex)
       const newSrc = src.slice(0, h.cardIndex)
       const newDst = [...node.tableau[h.toIndex], ...moving]

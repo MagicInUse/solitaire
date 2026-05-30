@@ -12,7 +12,7 @@
  *  - fast   — 200 ms total;  no hint flash, executes immediately at t=200 ms
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useGameStore }    from '../store/useGameStore'
 import { useOptionsStore } from '../store/useOptionsStore'
 import { getAIMove }       from '../utils/aiPlayer'
@@ -40,6 +40,11 @@ export interface UseAIPlayerReturn {
 export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
   const [isAIPlaying, setIsAIPlaying] = useState(false)
 
+  // Tracks the tableau column where a productive back-move just placed a card.
+  // Suppresses the immediate tableau→foundation reversal for one move so the
+  // follow-up that justified the back-move can execute first.
+  const backMoveDestCol = useRef<number | null>(null)
+
   const {
     stock, waste, foundations, tableau,
     won, isDealing,
@@ -50,7 +55,10 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
   const dealId = useGameStore((s) => s.dealId)
 
   // Reset AI when a new game starts
-  useEffect(() => { setIsAIPlaying(false) }, [dealId])
+  useEffect(() => {
+    setIsAIPlaying(false)
+    backMoveDestCol.current = null
+  }, [dealId])
 
   const { stockRecycles, aiSpeed, drawMode } = useOptionsStore()
 
@@ -68,6 +76,7 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
     const action = getAIMove({
       stock, waste, foundations, tableau,
       recycleCount, stockRecycles, won, drawMode,
+      skipTableauFoundationCol: backMoveDestCol.current,
     })
 
     if (action.type === 'idle') {
@@ -88,6 +97,8 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
       setTimeout(() => {
         if (action.type === 'move') {
           const { hint } = action
+          // Track productive back-moves: suppress their immediate reversal next turn.
+          backMoveDestCol.current = hint.fromType === 'foundation' ? hint.toIndex : null
           moveCards({
             fromType:  hint.fromType,
             fromIndex: hint.fromIndex,
@@ -99,8 +110,10 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
             flipTableauTop(hint.fromIndex)
           }
         } else if (action.type === 'draw') {
+          backMoveDestCol.current = null
           drawFromStock(drawMode)
         } else if (action.type === 'recycle') {
+          backMoveDestCol.current = null
           resetStock()
         }
       }, cfg.execDelay),
