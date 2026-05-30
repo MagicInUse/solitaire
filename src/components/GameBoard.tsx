@@ -268,7 +268,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   function handleStockClick() {
     if (stock.length > 0) {
-      drawFromStock()
+      drawFromStock(drawMode)
       playSfx('CARD_DRAW')
     } else if (canRecycle) {
       if (animationsEnabled) {

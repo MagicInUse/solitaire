@@ -52,7 +52,7 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
   // Reset AI when a new game starts
   useEffect(() => { setIsAIPlaying(false) }, [dealId])
 
-  const { stockRecycles, aiSpeed } = useOptionsStore()
+  const { stockRecycles, aiSpeed, drawMode } = useOptionsStore()
 
   const cfg = SPEED_CONFIG[aiSpeed]
 
@@ -99,7 +99,7 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
             flipTableauTop(hint.fromIndex)
           }
         } else if (action.type === 'draw') {
-          drawFromStock()
+          drawFromStock(drawMode)
         } else if (action.type === 'recycle') {
           resetStock()
         }

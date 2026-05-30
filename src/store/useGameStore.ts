@@ -11,78 +11,11 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Card, Pile, Rank, Suit, GameStateSnapshot, Hint } from '../types/cards'
-import { useOptionsStore } from './useOptionsStore'
-
-// ─── Deck helpers ────────────────────────────────────────────────────────────
-
-const SUITS: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
-
-/** Builds a fresh, unshuffled 52-card deck. */
-function buildDeck(): Card[] {
-  const deck: Card[] = []
-  for (const suit of SUITS) {
-    for (let rank = 1; rank <= 13; rank++) {
-      deck.push({ id: `${suit}-${rank}`, suit, rank: rank as Rank, faceUp: false })
-    }
-  }
-  return deck
-}
-
-/**
- * Returns a new array with the elements in a uniformly random order
- * (Fisher-Yates / Knuth shuffle).
- */
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-/**
- * Shuffles the deck and deals it into the standard Klondike opening position:
- * seven tableau columns (column *i* has *i + 1* cards, last one face-up),
- * with all remaining cards placed face-down on the stock.
- *
- * @param deck - A full 52-card deck (order is randomised internally).
- */
-function deal(deck: Card[]): {
-  stock: Pile
-  waste: Pile
-  foundations: [Pile, Pile, Pile, Pile]
-  tableau: [Pile, Pile, Pile, Pile, Pile, Pile, Pile]
-} {
-  const cards = shuffle(deck)
-  const tableau: [Pile, Pile, Pile, Pile, Pile, Pile, Pile] = [[], [], [], [], [], [], []]
-
-  // Deal cards into tableau: column i gets i+1 cards, last card face-up
-  let cursor = 0
-  for (let col = 0; col < 7; col++) {
-    for (let row = 0; row <= col; row++) {
-      tableau[col].push({ ...cards[cursor], faceUp: row === col })
-      cursor++
-    }
-  }
-
-  const stock = cards.slice(cursor).map(c => ({ ...c, faceUp: false }))
-
-  return {
-    stock,
-    waste: [],
-    foundations: [[], [], [], []],
-    tableau,
-  }
-}
+import type { Pile, GameStateSnapshot, Hint } from '../types/cards'
+import { dealKlondike } from '../engine/deck'
+import { checkWin }    from '../engine/gameLogic'
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
-
-/** Returns true when all four foundations have exactly 13 cards (52 total). */
-function checkWon(foundations: [Pile, Pile, Pile, Pile]): boolean {
-  return foundations.every((p) => p.length === 13)
-}
 
 /** Captures a shallow-but-sufficient snapshot of the mutable board piles. */
 function snapshot(state: Pick<GameStore, 'stock' | 'waste' | 'foundations' | 'tableau' | 'moveCount'>): GameStateSnapshot {
@@ -134,9 +67,9 @@ interface GameStore {
   newGame: () => void
   /**
    * Draw cards from the stock onto the waste pile.
-   * Respects the `drawMode` setting from {@link useOptionsStore}.
+   * The caller must pass the current `drawMode` (1 or 3) from useOptionsStore.
    */
-  drawFromStock: () => void
+  drawFromStock: (drawMode: 1 | 3) => void
   /**
    * Recycle the waste pile back into the stock.
    * The caller (GameBoard) is responsible for checking the recycle limit
@@ -173,7 +106,7 @@ interface GameStore {
 export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
-      ...deal(buildDeck()),
+      ...dealKlondike(),
 
       // ── Metadata defaults ───────────────────────────────────────────────
       won: false,
@@ -192,7 +125,7 @@ export const useGameStore = create<GameStore>()(
 
       newGame() {
         set({
-          ...deal(buildDeck()),
+          ...dealKlondike(),
           won: false,
           moveCount: 0,
           undosUsed: 0,
@@ -204,11 +137,10 @@ export const useGameStore = create<GameStore>()(
         })
       },
 
-      drawFromStock() {
+      drawFromStock(drawMode) {
         const state = get()
         if (state.stock.length === 0) return
 
-        const drawMode = useOptionsStore.getState().drawMode
         const count = Math.min(drawMode, state.stock.length)
 
         // stock[last] is the top — slice from the end
@@ -266,7 +198,7 @@ export const useGameStore = create<GameStore>()(
         if (toType === 'tableau') nextTableau[toIndex]      = newDest
         else                      nextFoundations[toIndex]  = newDest
 
-        const won = checkWon(nextFoundations)
+        const won = checkWin(nextFoundations)
 
         set({
           tableau:     nextTableau,
