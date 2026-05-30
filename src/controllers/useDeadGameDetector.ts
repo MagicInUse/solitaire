@@ -32,7 +32,9 @@ export function useDeadGameDetector(autoCompleting: boolean): [boolean, React.Di
   // actually changes (so the modal doesn't immediately reappear).
   const [dismissedAt, setDismissedAt] = useState<string | null>(null)
 
-  const canRecycle = stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
+  const recyclesRemaining = stockRecycles === 'unlimited'
+    ? Infinity
+    : Math.max(0, (stockRecycles as number) - recycleCount)
 
   // Reset on every new game
   useEffect(() => { setDeadGame(false); setDismissedAt(null) }, [dealId])
@@ -46,13 +48,13 @@ export function useDeadGameDetector(autoCompleting: boolean): [boolean, React.Di
     // If the user dismissed at this exact board state, don't re-fire
     if (dismissedAt === boardFingerprint) return
 
-    if (isDeadGame({ stock, waste, foundations, tableau, canRecycle, drawMode })) {
+    if (isDeadGame({ stock, waste, foundations, tableau, recyclesRemaining, drawMode })) {
       setDeadGame(true)
     } else {
       setDeadGame(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting, canRecycle])
+  }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting, recyclesRemaining])
 
   // Wrap setDeadGame to record dismissal fingerprint when user manually sets false
   const handleSetDeadGame: React.Dispatch<React.SetStateAction<boolean>> = (value) => {

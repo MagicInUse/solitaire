@@ -67,7 +67,7 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
 
     const action = getAIMove({
       stock, waste, foundations, tableau,
-      recycleCount, stockRecycles, won,
+      recycleCount, stockRecycles, won, drawMode,
     })
 
     if (action.type === 'idle') {

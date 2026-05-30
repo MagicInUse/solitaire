@@ -29,6 +29,7 @@ export interface AIState {
   recycleCount: number
   stockRecycles: number | 'unlimited'
   won: boolean
+  drawMode: 1 | 3
 }
 
 /**
@@ -43,6 +44,7 @@ export function getAIMove({
   recycleCount,
   stockRecycles,
   won,
+  drawMode,
 }: AIState): AIAction {
   if (won) return { type: 'idle' }
 
@@ -65,8 +67,11 @@ export function getAIMove({
   //    the GameBoard useEffect avoids a one-render race where the AI recycles
   //    before the deadGame prop has been updated.
   const canRecycle = stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
+  const recyclesRemaining = stockRecycles === 'unlimited'
+    ? Infinity
+    : Math.max(0, (stockRecycles as number) - recycleCount)
   if (canRecycle && waste.length > 0) {
-    if (!isDeadGame({ stock, waste, foundations, tableau, canRecycle })) {
+    if (!isDeadGame({ stock, waste, foundations, tableau, recyclesRemaining, drawMode })) {
       return { type: 'recycle' }
     }
   }

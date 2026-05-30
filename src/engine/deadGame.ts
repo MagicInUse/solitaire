@@ -149,7 +149,7 @@ function isBackMoveProductive(
 
 type DeadGameParams = BoardState & {
   stock: Pile
-  canRecycle: boolean
+  recyclesRemaining: number
   drawMode?: 1 | 3
 }
 
@@ -161,7 +161,7 @@ type DeadGameParams = BoardState & {
  *
  * The search expands:
  *  - Draw: pop drawMode cards from stock onto waste (if stock non-empty)
- *  - Recycle: flip waste back into stock (if canRecycle and stock empty)
+ *  - Recycle: flip waste back into stock (if recyclesRemaining > 0 and stock empty)
  *  - Play top waste card to any valid tableau column or foundation
  *  - Any tableau→tableau or tableau→foundation move that is direct progress
  *
@@ -177,7 +177,7 @@ export function isDeadGame({
   waste,
   foundations,
   tableau,
-  canRecycle,
+  recyclesRemaining,
   drawMode = 3,
 }: DeadGameParams): boolean {
   // ── Fast path: draws still available ──────────────────────────────────────
@@ -195,7 +195,7 @@ export function isDeadGame({
   if (hasImmediateProgress) return false
 
   // If no recycle and no stock, no moves can ever surface → dead.
-  if (!canRecycle) return true
+  if (recyclesRemaining <= 0) return true
 
   // ── Step 3: BFS over states reachable by draws, one recycle, and moves ────
   //
@@ -241,7 +241,7 @@ export function isDeadGame({
     queue.push(node)
   }
 
-  enqueue({ stock, waste, tableau, recyclesLeft: 1, depth: 0 })
+  enqueue({ stock, waste, tableau, recyclesLeft: Math.min(recyclesRemaining, 2), depth: 0 })
 
   let explored = 0
   while (queue.length > 0 && explored < MAX_STATES) {

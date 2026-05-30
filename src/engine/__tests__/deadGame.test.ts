@@ -122,7 +122,7 @@ describe('isDeadGame', () => {
       waste: [],
       foundations: emptyFoundations(),
       tableau: emptyTableau(),
-      canRecycle: false,
+      recyclesRemaining: 0,
     })).toBe(false)
   })
 
@@ -139,7 +139,7 @@ describe('isDeadGame', () => {
       waste: [],
       foundations,
       tableau: emptyTableau(),
-      canRecycle: false,
+      recyclesRemaining: 0,
     })).toBe(true)  // technically game is won, but dead-game detection also returns true here
   })
 
@@ -155,7 +155,7 @@ describe('isDeadGame', () => {
       waste: [],
       foundations: emptyFoundations(),
       tableau,
-      canRecycle: false,
+      recyclesRemaining: 0,
     })).toBe(false)
   })
 
@@ -187,7 +187,7 @@ describe('isDeadGame', () => {
       waste: [],
       foundations: emptyFoundations(),
       tableau,
-      canRecycle: false,
+      recyclesRemaining: 0,
     })).toBe(true)
   })
 
@@ -203,7 +203,7 @@ describe('isDeadGame', () => {
       waste: [],
       foundations: emptyFoundations(),
       tableau,
-      canRecycle: false,
+      recyclesRemaining: 0,
     })).toBe(false)
   })
 
@@ -217,7 +217,7 @@ describe('isDeadGame', () => {
       waste,
       foundations,
       tableau: emptyTableau(),
-      canRecycle: true,
+      recyclesRemaining: Infinity,
     })).toBe(false)
   })
 
@@ -249,7 +249,7 @@ describe('isDeadGame', () => {
       waste,
       foundations: emptyFoundations(),
       tableau,
-      canRecycle: true,
+      recyclesRemaining: Infinity,
     })).toBe(false)
   })
 
@@ -296,7 +296,7 @@ describe('isDeadGame', () => {
       waste: waste2,
       foundations: emptyFoundations(),
       tableau: tableau2,
-      canRecycle: true,
+      recyclesRemaining: Infinity,
     })).toBe(true)
   })
 
@@ -332,7 +332,7 @@ describe('isDeadGame', () => {
       waste,
       foundations: emptyFoundations(),
       tableau,
-      canRecycle: true,
+      recyclesRemaining: Infinity,
     })).toBe(false)
   })
 
@@ -363,11 +363,11 @@ describe('isDeadGame', () => {
       waste,
       foundations: emptyFoundations(),
       tableau,
-      canRecycle: true,
+      recyclesRemaining: Infinity,
     })).toBe(false)
   })
 
-  it('returns false when canRecycle is false but top waste card has a direct move', () => {
+  it('returns false when recyclesRemaining is 0 but top waste card has a direct move', () => {
     // No recycling needed — top of waste goes straight to tableau
     const tableau = emptyTableau()
     tableau[0] = [card('hearts', 8)]  // 7♠ can land here
@@ -379,11 +379,11 @@ describe('isDeadGame', () => {
       waste,
       foundations: emptyFoundations(),
       tableau,
-      canRecycle: false,
+      recyclesRemaining: 0,
     })).toBe(false)
   })
 
-  it('returns true with canRecycle false and no moves at all', () => {
+  it('returns true with recyclesRemaining 0 and no moves at all', () => {
     // No stock, no useful moves on board, waste top can't go anywhere, no recycling
     const tableau = emptyTableau()
     tableau[0] = [card('hearts', 2)]
@@ -396,7 +396,51 @@ describe('isDeadGame', () => {
       waste,
       foundations: emptyFoundations(),
       tableau,
-      canRecycle: false,
+      recyclesRemaining: 0,
+    })).toBe(true)
+  })
+
+  it('returns false when playable card is at cycle-2 draw-3 position (needs 2 recycles)', () => {
+    // waste = [2♦(pos0), 9♣(pos1), A♥(pos2), 5♠(pos3), 8♣(pos4), Q♦(pos5=top)]
+    // Draw-3 cycle-1: exposes pos0 (2♦) then pos3 (5♠) — neither goes to empty foundations
+    // Draw-3 cycle-2: exposes pos2 (A♥) — goes straight to empty foundation!
+    // With recyclesRemaining=2 the BFS finds A♥ → foundation → returns false (not dead)
+    const waste: Pile = [
+      card('diamonds', 2),  // pos0
+      card('clubs', 9),     // pos1
+      card('hearts', 1),    // pos2 — Ace, only reachable on cycle 2
+      card('spades', 5),    // pos3
+      card('clubs', 8),     // pos4
+      card('diamonds', 12), // pos5 top
+    ]
+    expect(isDeadGame({
+      stock: [],
+      waste,
+      foundations: emptyFoundations(),
+      tableau: emptyTableau(),
+      recyclesRemaining: 2,
+      drawMode: 3,
+    })).toBe(false)
+  })
+
+  it('returns true for same cycle-2 scenario with only 1 recycle available', () => {
+    // Same board — A♥ is at cycle-2 position, but with only 1 recycle available
+    // the BFS only explores cycle-1 positions (pos0 and pos3), never reaches A♥
+    const waste: Pile = [
+      card('diamonds', 2),  // pos0
+      card('clubs', 9),     // pos1
+      card('hearts', 1),    // pos2 — only exposed on cycle 2
+      card('spades', 5),    // pos3
+      card('clubs', 8),     // pos4
+      card('diamonds', 12), // pos5 top
+    ]
+    expect(isDeadGame({
+      stock: [],
+      waste,
+      foundations: emptyFoundations(),
+      tableau: emptyTableau(),
+      recyclesRemaining: 1,
+      drawMode: 3,
     })).toBe(true)
   })
 })
