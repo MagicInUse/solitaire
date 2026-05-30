@@ -13,7 +13,7 @@ import {
 } from "@dnd-kit/core"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { LayoutGroup, motion, AnimatePresence } from "framer-motion"
-import type { Card, Suit } from "../types/cards"
+import type { Card } from "../types/cards"
 import vqLogo from '../assets/veriquery-logo.png'
 import { useGameStore }    from "../store/useGameStore"
 import { useOptionsStore } from "../store/useOptionsStore"
@@ -30,54 +30,19 @@ import { DragStack }   from "./DragStack"
 import { GameCanvas }  from "./GameCanvas"
 import { WinCascade }     from "./WinCascade"
 import { DeadGameModal }  from "./DeadGameModal"
-import { useStatsStore }          from "../store/useStatsStore"
-import { computeHints, filterUsefulHints, isDeadGame } from '../utils/hints'
 import { calculateScore, calculateVegasScore, formatVegasScore, formatTime } from "../utils/scoring"
 import { useTimer }               from "../hooks/useTimer"
 import { useSounds }              from "../hooks/useSounds"
 import { Timer, Star, Coins, Lightbulb, Undo2, Zap, Bot } from 'lucide-react'
-import { useAIPlayer } from '../hooks/useAIPlayer'
+import { useAIPlayer }           from '../hooks/useAIPlayer'
+import { canMoveStack }          from '../engine/rules'
+import { useAutoComplete }       from '../controllers/useAutoComplete'
+import { useDeadGameDetector }   from '../controllers/useDeadGameDetector'
+import { useHintController }     from '../controllers/useHintController'
+import { useStatsRecorder }      from '../controllers/useStatsRecorder'
 
 
-// ─── Klondike move validation ──────────────────────────────────────────────
 
-function isRed(suit: Suit) {
-  return suit === 'hearts' || suit === 'diamonds'
-}
-
-function canMoveCards(
-  movingCards: Card[],
-  destPile: Card[],
-  toType: 'tableau' | 'foundation'
-): boolean {
-  if (movingCards.length === 0) return false
-  if (!movingCards[0].faceUp) return false
-
-  if (toType === 'foundation') {
-    if (movingCards.length !== 1) return false
-    const card = movingCards[0]
-    if (destPile.length === 0) return card.rank === 1
-    const top = destPile[destPile.length - 1]
-    return card.suit === top.suit && card.rank === top.rank + 1
-  }
-
-  // tableau
-  const bottom = movingCards[0] // bottom of the moving stack (lowest rank)
-
-  // Validate internal stack sequence before checking destination
-  for (let j = 0; j < movingCards.length - 1; j++) {
-    const cur  = movingCards[j]
-    const nxt  = movingCards[j + 1]
-    if (!nxt.faceUp) return false
-    if (nxt.rank !== cur.rank - 1) return false
-    if (isRed(nxt.suit) === isRed(cur.suit)) return false
-  }
-
-  if (destPile.length === 0) return bottom.rank === 13
-  const top = destPile[destPile.length - 1]
-  if (!top.faceUp) return false
-  return bottom.rank === top.rank - 1 && isRed(bottom.suit) !== isRed(top.suit)
-}
 
 /**
  * Root game component.
@@ -100,7 +65,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
     stock, waste, foundations, tableau,
     drawFromStock, resetStock, moveCards, flipTableauTop, newGame,
     won, isDealing, setDealing, dealId,
-    moveCount, undosUsed, activeHint, setActiveHint, undo,
+    moveCount, undosUsed, activeHint, undo,
   } = useGameStore()
   const drawId  = useGameStore((s) => s.drawId)
 
@@ -112,7 +77,6 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const canUndo = useGameStore((s) => s.history.length > 0)
     && (undoLimit === 'unlimited' || undosUsed < (undoLimit as number))
 
-  const { recordGameStarted, recordWin, recordLoss } = useStatsStore()
   const { playSfx } = useSounds()
   // Timer runs for standard; for vegas/casual we still track elapsed for recordWin but don't display it
   const elapsed = useTimer(!won && !isDealing, dealId)
@@ -123,9 +87,9 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const { scale, layout } = useGameScale()
   const [dragSourceInfo, setDragSourceInfo] = useState<DragSourceInfo & { cards: Card[] } | null>(null)
   const [dragOverInfo, setDragOverInfo] = useState<{ toType: "tableau" | "foundation"; toIndex: number } | null>(null)
-  const [autoCompleting, setAutoCompleting] = useState(false)
-  const [hintCycleIdx, setHintCycleIdx] = useState(0)
-  const [deadGame, setDeadGame] = useState(false)
+  const { autoCompleting, setAutoCompleting, canAutoComplete } = useAutoComplete()
+  const [deadGame, setDeadGame] = useDeadGameDetector(autoCompleting)
+  const { handleHint } = useHintController()
   const [isRecycling, setIsRecycling] = useState(false)
   const { isAIPlaying, setIsAIPlaying } = useAIPlayer(deadGame)
   // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
@@ -136,14 +100,13 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const prevVisibleIdsRef        = useRef(new Set<string>())
   const prevWasteVisibleCountRef = useRef(0)
   const isFirstRenderRef         = useRef(true)
-  // Stats tracking refs
-  const prevWonRef          = useRef(false)
-  const statsGameTrackedRef = useRef(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 100, tolerance: 5 } }),
   )
+
+  useStatsRecorder({ elapsed, vegasProfit, standardScore })
 
   // Clear isDealing flag after the staggered deal animation completes.
   // 28 cards × 0.03s stagger + 0.18s card duration ≈ 1.02s total.
@@ -163,91 +126,13 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
     prevVisibleIdsRef.current = new Set(waste.slice(-count).map(c => c.id))
   })
 
-  // Reset per-game transient state when a new game starts
-  useEffect(() => {
-    setAutoCompleting(false)
-    setHintCycleIdx(0)
-    setDeadGame(false)
-    setIsAIPlaying(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealId])
 
-  // Auto-complete: step one card to foundation every 80 ms while running
-  useEffect(() => {
-    if (!autoCompleting || won) return
-
-    function findMove() {
-      for (let col = 0; col < 7; col++) {
-        const pile = tableau[col]
-        if (pile.length === 0) continue
-        const topCard = pile[pile.length - 1]
-        if (!topCard.faceUp) continue
-        for (let fi = 0; fi < 4; fi++) {
-          if (canMoveCards([topCard], foundations[fi], 'foundation')) {
-            return { colIndex: col, cardIndex: pile.length - 1, foundationIdx: fi }
-          }
-        }
-      }
-      return null
-    }
-
-    const move = findMove()
-    if (!move) { setAutoCompleting(false); return }
-
-    const id = setTimeout(() => {
-      moveCards({ fromType: 'tableau', fromIndex: move.colIndex, cardIndex: move.cardIndex, toType: 'foundation', toIndex: move.foundationIdx })
-      playSfx('CARD_PLACE')
-    }, 120)
-    return () => clearTimeout(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoCompleting, won, tableau, foundations])
 
   // Recycle is allowed when stock is empty and the limit hasn't been reached
   const canRecycle =
     stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
 
-  // Dead-game detection: no playable hints AND no way to draw new cards.
-  // Uses isDeadGame() which handles all cases including the subtle scenario
-  // where waste has cards and recycles remain but no buried card can ever
-  // reach any destination on the current (unchangeable) board.
-  useEffect(() => {
-    if (won || isDealing || autoCompleting) return
-    setDeadGame(isDeadGame({ stock, waste, foundations, tableau, canRecycle }))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stock, waste, foundations, tableau, won, isDealing, autoCompleting, canRecycle])
 
-  // Reset hint cycle whenever the store clears the active hint (after any game action)
-  useEffect(() => {
-    if (!activeHint) setHintCycleIdx(0)
-  }, [activeHint])
-
-  // Stats: record game started on each new game; record loss if previous wasn't won
-  useEffect(() => {
-    if (dealId === 0) return
-    if (statsGameTrackedRef.current && !prevWonRef.current) recordLoss()
-    prevWonRef.current = false
-    statsGameTrackedRef.current = true
-    recordGameStarted()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealId])
-
-  // Stats: record win when the player finishes; also trigger win sfx
-  useEffect(() => {
-    if (!won) return
-    prevWonRef.current = true
-    playSfx('WIN')
-    const score = scoringMode === 'vegas' ? vegasProfit : standardScore
-    recordWin({
-      drawMode: drawMode as 1 | 3,
-      scoringMode: scoringMode === 'vegas' ? 'vegas' : 'standard',
-      timeSeconds: elapsed,
-      moves: moveCount,
-      score,
-      undosUsed,
-      skipLeaderboard: scoringMode === 'casual',
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [won])
 
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current as {
@@ -286,7 +171,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
       setDragOverInfo(null); return
     }
     const destPile = dest.toType === 'tableau' ? tableau[dest.toIndex] : foundations[dest.toIndex]
-    if (!destPile || !canMoveCards(sourceInfo.cards, destPile, dest.toType)) {
+    if (!destPile || !canMoveStack(sourceInfo.cards, destPile, dest.toType)) {
       setDragOverInfo(null); return
     }
     // Functional updater: skip re-render when the hovered target hasn't changed
@@ -324,7 +209,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
         ? tableau[dest.toIndex]
         : foundations[dest.toIndex]
     if (!destPile) return
-    if (!canMoveCards(snapshot.cards, destPile, dest.toType)) return
+    if (!canMoveStack(snapshot.cards, destPile, dest.toType)) return
 
     moveCards({
       fromType: snapshot.sourceType as "waste" | "tableau" | "foundation",
@@ -364,7 +249,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
     // Try each foundation in order — only one will ever match for a given suit
     for (let i = 0; i < 4; i++) {
-      if (canMoveCards([card], foundations[i], 'foundation')) {
+      if (canMoveStack([card], foundations[i], 'foundation')) {
         moveCards({
           fromType: sourceType,
           fromIndex: sourceIndex,
@@ -380,19 +265,6 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
       }
     }
   }
-
-  function handleHint() {
-    const useful = filterUsefulHints(computeHints({ waste, foundations, tableau }), tableau, foundations, waste)
-    if (useful.length === 0) { setActiveHint(null); setHintCycleIdx(0); return }
-    const idx = hintCycleIdx % useful.length
-    setActiveHint(useful[idx])
-    setHintCycleIdx(idx + 1)
-  }
-
-  const canAutoComplete =
-    !won && !autoCompleting &&
-    stock.length === 0 && waste.length === 0 &&
-    tableau.every(col => col.every(c => c.faceUp))
 
   function handleStockClick() {
     if (stock.length > 0) {

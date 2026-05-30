@@ -47,6 +47,11 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
     recycleCount,
   } = useGameStore()
 
+  const dealId = useGameStore((s) => s.dealId)
+
+  // Reset AI when a new game starts
+  useEffect(() => { setIsAIPlaying(false) }, [dealId])
+
   const { stockRecycles, aiSpeed } = useOptionsStore()
 
   const cfg = SPEED_CONFIG[aiSpeed]
