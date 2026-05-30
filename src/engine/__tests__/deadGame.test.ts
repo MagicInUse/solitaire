@@ -300,6 +300,42 @@ describe('isDeadGame', () => {
     })).toBe(true)
   })
 
+  it('returns false on direction-shift: buried card enables the original top card to play (draw-3 regression)', () => {
+    // Regression test for the "direction shift" false-positive.
+    //
+    // Scenario: waste = [2♦, K♣, 7♠(buried=i=2), 5♦(top=i=3, can't play)]
+    //   draw-3 first pass: only 5♦ was accessible (top of last draw group), not playable.
+    //   After recycle + draw-3: first draw group = [2♦, K♣, 7♠], 7♠ on top → accessible!
+    //   7♠ on 8♥ (col 0): valid.
+    //   After placing 7♠, simWaste should include 5♦ (above 7♠ in original waste).
+    //   5♦ on 6♣ (col 1)? 5♦(red) on 6♣(black), 5=6-1 → YES → direct progress.
+    //
+    // Old bug: simWaste = waste.slice(0, 2) = [2♦, K♣]; top = K♣.
+    //   K♣ can't go on modified tableau (no empty col, tableau tops are 8♥/7♠ and 6♣).
+    //   No follow-up found → false dead-game declared.
+    //
+    // Fix: simWaste = [...waste.slice(0,2), ...waste.slice(3)] = [2♦, K♣, 5♦]; top = 5♦.
+    //   5♦ on 6♣ → direct progress found → correctly NOT dead.
+    const tableau = emptyTableau()
+    tableau[0] = [card('hearts', 8)]    // 8♥ — 7♠ can land here
+    tableau[1] = [card('clubs', 6)]     // 6♣ — 5♦ can land here after 7♠ is placed
+
+    const waste: Pile = [
+      card('diamonds', 2),  // i=0, buried
+      card('clubs', 13),    // i=1, buried (K♣ — can't go on non-empty tableau)
+      card('spades', 7),    // i=2, buried — this is the card drawn first after recycle in draw-3
+      card('diamonds', 5),  // i=3, original top — couldn't play, but CAN after 7♠ is placed
+    ]
+
+    expect(isDeadGame({
+      stock: [],
+      waste,
+      foundations: emptyFoundations(),
+      tableau,
+      canRecycle: true,
+    })).toBe(false)
+  })
+
   it('returns false when second-order waste card sequence unblocks the game', () => {
     // cardA (buried earlier) places on tableau, enabling cardB to stack on top
     // which then has a follow-up progress move

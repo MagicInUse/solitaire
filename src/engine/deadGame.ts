@@ -193,16 +193,24 @@ export function isDeadGame({
     // First-order: each buried waste card individually.
     //
     // Draw-order note: resetStock() reverses waste into stock, so waste[0]
-    // is drawn FIRST after a recycle.  When card waste[i] is played,
-    // waste[0..i-1] are already sitting in the new waste pile.
+    // is drawn FIRST after a recycle.  When card waste[i] is played, ALL
+    // other waste cards remain accessible: cards below i are already in the
+    // new waste pile, and cards above i will appear in subsequent draws.
+    // simWaste must therefore include BOTH: [...waste[0..i-1], ...waste[i+1..n-1]].
+    // Using only waste.slice(0, i) (the old logic) missed the "direction shift"
+    // in draw-3 where the card above i (the original visible top) becomes
+    // accessible again after a recycle and may now be playable on the modified
+    // tableau — causing a false dead-game positive.
     const buried = waste.slice(0, waste.length > 1 ? -1 : undefined)
 
     const canUnblock = buried.some((card, i) => {
       // Foundation destination: always progress
       if (foundations.some(f => canPlaceOnFoundation(card, f))) return true
 
-      // Tableau destination: simulate placement, check for a follow-up progress move
-      const simWaste = waste.slice(0, i)
+      // Tableau destination: simulate placement, check for a follow-up progress move.
+      // Include ALL remaining cards (above and below i) in simWaste so the
+      // follow-up check can see cards that become accessible through subsequent draws.
+      const simWaste = [...waste.slice(0, i), ...waste.slice(i + 1)]
       for (let ti = 0; ti < 7; ti++) {
         if (!canPlaceOnTableau(card, tableau[ti])) continue
         const simTableau = tableau.map((p, k) =>
@@ -239,9 +247,9 @@ export function isDeadGame({
               k === ta ? [...p, { ...cardB, faceUp: true }] : p
             ) as Tableau
 
-            // Waste state when B is played: cards before A (0..i-1) plus
-            // cards between A and B (i+1..j-1); cardA has already been played.
-            const simWasteAB = [...waste.slice(0, i), ...waste.slice(i + 1, j)]
+            // Waste state when both A and B are played: cards before A,
+            // between A and B, and after B — all remain accessible.
+            const simWasteAB = [...waste.slice(0, i), ...waste.slice(i + 1, j), ...waste.slice(j + 1)]
             const follow = computeHints({ waste: simWasteAB, foundations, tableau: simTableauAB })
             if (follow.some(h => h.fromType !== 'foundation' && isDirectProgress(h, simTableauAB))) {
               return false
