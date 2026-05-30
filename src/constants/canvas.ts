@@ -44,6 +44,8 @@ export const CARD_H = 67
 export const PADDING = 9
 /** Gap between adjacent tableau columns. */
 export const GAP     = 6
+/** Horizontal pixel offset between fanned waste cards (draw-3 fan). */
+export const FAN_OFFSET = 14
 
 // ─── Tableau card overlap ─────────────────────────────────────────────────────
 
