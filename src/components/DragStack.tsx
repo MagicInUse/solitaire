@@ -2,6 +2,8 @@ import { motion } from 'framer-motion'
 import type { Card } from '../types/cards'
 import { CardFace } from './CardFace'
 import { CARD_W, CARD_H, FACEUP_OFFSET } from '../constants/canvas'
+import { DURATION, EASE } from '../constants/animations'
+import { useAnimations } from '../hooks/useAnimations'
 
 /** Props for {@link DragStack}. */
 interface DragStackProps {
@@ -26,14 +28,15 @@ interface DragStackProps {
  * The overlay is not interactive; it is purely cosmetic.
  */
 export function DragStack({ cards, scale }: DragStackProps) {
+  const animationsEnabled = useAnimations()
   const totalHeight = (cards.length - 1) * FACEUP_OFFSET + CARD_H
 
   return (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', display: 'inline-block' }}>
       <motion.div
         initial={{ scale: 1 }}
-        animate={{ scale: 1.05 }}
-        transition={{ duration: 0.12, ease: 'easeOut' }}
+        animate={{ scale: animationsEnabled ? 1.05 : 1 }}
+        transition={{ duration: DURATION.fast, ease: EASE.out }}
         style={{ position: 'relative', width: CARD_W, height: totalHeight }}
       >
         {cards.map((card, i) => (

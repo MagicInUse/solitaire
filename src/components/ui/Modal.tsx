@@ -10,6 +10,8 @@
 
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { DURATION, EASE } from '../../constants/animations'
+import { useAnimations } from '../../hooks/useAnimations'
 
 interface ModalProps {
   open: boolean
@@ -20,6 +22,7 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, children, title }: ModalProps) {
+  const animationsEnabled = useAnimations()
   return createPortal(
     <AnimatePresence>
       {open && (
@@ -28,7 +31,7 @@ export function Modal({ open, onClose, children, title }: ModalProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
+          transition={{ duration: animationsEnabled ? DURATION.base : 0 }}
         >
           {/* Backdrop */}
           <div
@@ -39,10 +42,10 @@ export function Modal({ open, onClose, children, title }: ModalProps) {
           {/* Container */}
           <motion.div
             className="relative z-10 bg-[#131f13] border border-white/10 rounded-2xl shadow-2xl w-full max-w-115 mx-4 overflow-hidden"
-            initial={{ scale: 0.94, opacity: 0, y: 10 }}
+            initial={animationsEnabled ? { scale: 0.94, opacity: 0, y: 10 } : false}
             animate={{ scale: 1,    opacity: 1, y: 0 }}
-            exit={{    scale: 0.97, opacity: 0, y: 4 }}
-            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            exit={animationsEnabled ? { scale: 0.97, opacity: 0, y: 4 } : { opacity: 0 }}
+            transition={{ duration: animationsEnabled ? DURATION.base : 0, ease: EASE.modal }}
           >
             {title && (
               <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">

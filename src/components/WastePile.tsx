@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from "framer-motion"
 import type { Card } from "../types/cards"
 import { useGameStore }    from "../store/useGameStore"
 import { useOptionsStore } from "../store/useOptionsStore"
+import { useAnimations }   from "../hooks/useAnimations"
 import { CardView }        from "./CardView"
 import { CARD_W, GAP, FAN_OFFSET } from "../constants/canvas"
+import { DURATION, EASE }  from "../constants/animations"
 
 interface WastePileProps {
   scale:         number
@@ -20,7 +22,9 @@ export function WastePile({ scale, isDraggingNow, onDoubleClick }: WastePileProp
   const waste      = useGameStore((s) => s.waste)
   const drawId     = useGameStore((s) => s.drawId)
   const activeHint = useGameStore((s) => s.activeHint)
-  const { drawMode, deckLocation, animationsEnabled } = useOptionsStore()
+  const drawMode     = useOptionsStore((s) => s.drawMode)
+  const deckLocation = useOptionsStore((s) => s.deckLocation)
+  const animationsEnabled = useAnimations()
 
   // ── Animation-tracking refs ─────────────────────────────────────────────
   const prevDrawIdRef            = useRef(drawId)
@@ -55,35 +59,29 @@ export function WastePile({ scale, isDraggingNow, onDoubleClick }: WastePileProp
 
           const exitVariants = animationsEnabled ? {
             exit: (isDraw: boolean) => isDraw
-              ? { x: -fanX, opacity: 0, transition: { duration: 0.15, ease: 'easeIn' as const } }
+              ? { x: -fanX, opacity: 0, transition: { duration: DURATION.fast, ease: EASE.in } }
               : { opacity: 1, transition: { duration: 0 } },
           } : undefined
 
+          // CINEMATOGRAPHY: every drawn card enters with the SAME motion —
+          // a horizontal slide originating from the stock pile's side. No
+          // pop/scale variation, so the deal reads consistently regardless
+          // of whether the fan was empty or already populated.
+          const fromStockX = deckLocation === 'left' ? -(CARD_W + GAP) : (CARD_W + GAP)
+
           const initial = (() => {
             if (!animationsEnabled || !isNewCard) return false
-            if (wasNewDraw && wasEmptyFan) return {
-              x: deckLocation === 'left' ? -fanX : (visibleWasteCount - 1 - i) * FAN_OFFSET,
-              y: -12, scale: 0.92,
-            }
-            if (wasNewDraw) return {
-              x: deckLocation === 'left' ? -(CARD_W + GAP) : (CARD_W + GAP),
-              opacity: 0,
-            }
+            if (wasNewDraw) return { x: fromStockX, opacity: 0 }
             return { opacity: 0 }
           })()
 
           const transition = (() => {
             if (!animationsEnabled || !isNewCard) return { duration: 0 }
-            if (wasNewDraw && wasEmptyFan) return {
-              y:     { duration: 0.10, ease: 'easeOut' },
-              scale: { duration: 0.10, ease: 'easeOut' },
-              x:     { delay: 0.15, duration: 0.20, ease: 'easeOut' },
-            }
             if (wasNewDraw) return {
-              x:       { delay: i * 0.07, duration: 0.18, ease: 'easeOut' },
-              opacity: { delay: i * 0.07, duration: 0.12 },
+              x:       { delay: i * 0.07, duration: DURATION.base, ease: EASE.out },
+              opacity: { delay: i * 0.07, duration: DURATION.fast },
             }
-            return { opacity: { duration: 0.18, ease: 'easeOut' } }
+            return { opacity: { duration: DURATION.base, ease: EASE.out } }
           })()
 
           return (

@@ -4,7 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CardView } from './CardView'
 import { CardFace } from './CardFace'
 import { CARD_H, TABLEAU_AVAILABLE_H_PORTRAIT } from '../constants/canvas'
+import { DURATION } from '../constants/animations'
 import { computeColumnOffsets } from '../utils/layout'
+import { useAnimations } from '../hooks/useAnimations'
 import type { GameLayoutMode } from '../hooks/useGameScale'
 import type { Card, Pile } from '../types/cards'
 
@@ -67,6 +69,8 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
     id: `tableau-${colIndex}`,
     data: { toType: 'tableau', toIndex: colIndex },
   })
+
+  const animationsEnabled = useAnimations()
 
   // Per-column offsets — compressed automatically when tall stacks would overflow
   const tableauAvailableH = layout === 'portrait' ? TABLEAU_AVAILABLE_H_PORTRAIT : undefined
@@ -135,10 +139,10 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
             key={`preview-${card.id}`}
             className="w-12 h-16.75 absolute left-0 pointer-events-none rounded-[5px] overflow-hidden"
             style={{ top: previewBaseTop + j * fuOffset, zIndex: pile.length + j }}
-            initial={{ opacity: 0 }}
+            initial={animationsEnabled ? { opacity: 0 } : false}
             animate={{ opacity: 0.55 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.10 }}
+            transition={{ duration: animationsEnabled ? DURATION.instant : 0 }}
           >
             <CardFace card={card} />
           </motion.div>

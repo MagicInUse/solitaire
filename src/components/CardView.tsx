@@ -5,9 +5,11 @@ import { CSS } from "@dnd-kit/utilities"
 import type { Card } from "../types/cards"
 import { CardFace } from "./CardFace"
 import { CARD_W, CARD_H } from "../constants/canvas"
-import { useOptionsStore }   from "../store/useOptionsStore"
+import { DURATION, EASE, SPRING } from "../constants/animations"
 import { useGameStore }      from "../store/useGameStore"
+import { useOptionsStore }   from "../store/useOptionsStore"
 import { useAnimationStore } from "../store/useAnimationStore"
+import { useAnimations }     from "../hooks/useAnimations"
 
 /** Props for {@link CardView}. */
 interface CardViewProps {
@@ -44,6 +46,15 @@ interface CardViewProps {
    * source (or part of the source stack) of the active hint.
    */
   hinted?: boolean
+  /**
+   * Whether this card participates in Framer Motion shared-layout (`layoutId`)
+   * transitions. Disable for cards that land via a dedicated arrival animation
+   * (e.g. foundation pop-in) so they don't try to FLIP across an
+   * `AnimatePresence` boundary inside the scaled canvas — which misprojects the
+   * origin and makes the card appear to fly in from off-screen.
+   * @defaultValue true
+   */
+  layout?: boolean
 }
 
 /**
@@ -56,9 +67,11 @@ interface CardViewProps {
  * While dragging, the original card becomes invisible (opacity 0); the
  * visible clone is rendered by `DragOverlay` via {@link DragStack}.
  */
-export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick, dealDelay = 0, hinted = false }: CardViewProps) {
+export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick, dealDelay = 0, hinted = false, layout = true }: CardViewProps) {
   const lastTapRef = useRef<number>(0)
-  const animationsEnabled  = useOptionsStore((s) => s.animationsEnabled)
+  const downRef    = useRef<{ x: number; y: number } | null>(null)
+  const animationsEnabled  = useAnimations()
+  const interactionMode    = useOptionsStore((s) => s.interactionMode)
   const isDealing          = useGameStore((s) => s.isDealing)
   const isRecentlyDropped  = useAnimationStore((s) => s.droppedIds.has(card.id))
   const justUndid          = useAnimationStore((s) => s.justUndid)
@@ -77,12 +90,41 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
     : null
 
   // Mobile browsers don't fire dblclick for touch; detect double-tap manually.
+  // In single-tap mode a plain tap auto-moves the card; we distinguish a tap
+  // from a drag by comparing the pointer-up position against the recorded
+  // pointer-down position (a real drag moves further than TAP_SLOP).
+  const TAP_SLOP = 6
+
+  function autoMove() {
+    onDoubleClick?.(card, cardIndex, sourceType, sourceIndex)
+  }
+
+  function isTap(x: number, y: number) {
+    const d = downRef.current
+    if (!d) return false
+    return Math.abs(x - d.x) <= TAP_SLOP && Math.abs(y - d.y) <= TAP_SLOP
+  }
+
+  function handleClick(e: React.MouseEvent) {
+    if (interactionMode !== 'single-tap' || !onDoubleClick) return
+    if (isTap(e.clientX, e.clientY)) autoMove()
+  }
+
   function handleTouchEnd(e: React.TouchEvent) {
     if (!onDoubleClick) return
+    const t = e.changedTouches[0]
+    if (interactionMode === 'single-tap') {
+      if (t && isTap(t.clientX, t.clientY)) {
+        e.preventDefault()
+        autoMove()
+      }
+      return
+    }
+    // Legacy double-tap detection
     const now = Date.now()
     if (now - lastTapRef.current < 300) {
       e.preventDefault()
-      onDoubleClick(card, cardIndex, sourceType, sourceIndex)
+      autoMove()
       lastTapRef.current = 0
     } else {
       lastTapRef.current = now
@@ -93,14 +135,19 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
   // Disabled during drag, during deal, and for one frame after a drop (recentlyDropped)
   // to prevent Framer Motion from re-animating the card's pre-drag position → new position,
   // which would double-play the drag movement the user just performed.
-  const layoutId = animationsEnabled && !isDragging && !isDealing && !isRecentlyDropped ? card.id : undefined
+  // Also disabled when `layout` is false (e.g. foundation cards animate via their own
+  // pop-in), since a cross-AnimatePresence FLIP inside the scaled canvas misprojects the
+  // origin and makes the card appear to fly in from off-screen.
+  const layoutId = layout && animationsEnabled && !isDragging && !isDealing && !isRecentlyDropped ? card.id : undefined
 
   return (
     <motion.div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      onDoubleClick={onDoubleClick ? () => onDoubleClick(card, cardIndex, sourceType, sourceIndex) : undefined}
+      onPointerDownCapture={(e) => { downRef.current = { x: e.clientX, y: e.clientY } }}
+      onClick={onDoubleClick && interactionMode === 'single-tap' ? handleClick : undefined}
+      onDoubleClick={onDoubleClick && interactionMode === 'double-tap' ? () => onDoubleClick(card, cardIndex, sourceType, sourceIndex) : undefined}
       onTouchEnd={onDoubleClick ? handleTouchEnd : undefined}
       layoutId={layoutId}
       className={hinted ? 'hint-glow-card' : undefined}
@@ -108,10 +155,10 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
       animate={{ opacity: isDragging ? 0 : 1, y: 0 }}
       transition={
         justUndid && animationsEnabled
-          ? { type: 'spring', stiffness: 380, damping: 28 }
+          ? SPRING.undo
           : isDealing
-          ? { delay: dealDelay, duration: 0.18, ease: 'easeOut' }
-          : { duration: 0.15, ease: 'easeOut' }
+          ? { delay: dealDelay, duration: DURATION.base, ease: EASE.out }
+          : { duration: 0.15, ease: EASE.out }
       }
       style={{
         width: CARD_W,

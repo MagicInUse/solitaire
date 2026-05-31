@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
-  CANVAS_W, CANVAS_H,
+  CANVAS_W_LANDSCAPE, CANVAS_H,
   CANVAS_W_PORTRAIT, CANVAS_H_PORTRAIT,
 } from '../constants/canvas'
 
@@ -11,9 +11,11 @@ import {
  * is capped here so the playfield stays a comfortable size and the surrounding
  * felt "world" border becomes visible — reserved for future ambient decorations.
  *
- * With the 390 × 390 landscape canvas, uncapped scale = min(vw, vh) / 390.
+ * With the 462 × 390 landscape canvas, height still bounds the scale on every
+ * real device (w/462 ≥ h/390 always), so uncapped scale = h / 390.
  * iPad Air (1180 × 820): scale ≈ 2.10 → cards render ~101 px wide.
- * Desktop 1920 × 1080: scale capped at 2.5 → cards render 120 px wide.
+ * Desktop 1920 × 1080: scale capped at 2.5 → cards render 120 px wide, and the
+ * extra felt on the sides becomes the doodad border.
  */
 export const MAX_SCALE = 2.5
 
@@ -40,17 +42,18 @@ export interface GameLayout {
  * transitions, causing the scale to be computed against the pre-rotation size
  * and sending cards off-screen until the next paint cycle.
  */
-function computeLayout(w: number, h: number): GameLayout {
+export function computeLayout(w: number, h: number): GameLayout {
   if (h > w) {
     return {
       scale: Math.min(w / CANVAS_W_PORTRAIT, h / CANVAS_H_PORTRAIT, MAX_SCALE),
       layout: 'portrait',
     }
   }
-  // Landscape (all sizes): square 390 × 390 canvas. Scale = min(vw, vh) / 390.
-  // Since w > h in landscape, height is always the constraining dimension.
+  // Landscape (all sizes): wide 462 × 390 canvas. Scale = min(vw/462, vh/390).
+  // Since w/462 ≥ h/390 on every real landscape device, height bounds the scale,
+  // so card size matches portrait while the board fills more horizontal felt.
   return {
-    scale: Math.min(w / CANVAS_W, h / CANVAS_H, MAX_SCALE),
+    scale: Math.min(w / CANVAS_W_LANDSCAPE, h / CANVAS_H, MAX_SCALE),
     layout: 'landscape',
   }
 }
@@ -88,7 +91,7 @@ function getDocumentDimensions(): [number, number] {
  *
  * Canvas sizes:
  * - `portrait`:  390 × 750
- * - `landscape`: 390 × 390
+ * - `landscape`: 462 × 390
  */
 export function useGameScale(): GameLayout {
   const [gameLayout, setGameLayout] = useState<GameLayout>(() => {

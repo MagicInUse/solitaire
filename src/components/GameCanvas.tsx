@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
-import { CANVAS_W, CANVAS_H, CANVAS_W_PORTRAIT, CANVAS_H_PORTRAIT } from '../constants/canvas'
+import { CANVAS_W_LANDSCAPE, CANVAS_H, CANVAS_W_PORTRAIT, CANVAS_H_PORTRAIT } from '../constants/canvas'
 import { useGameScale } from '../hooks/useGameScale'
+import { DebugOverlay, isDebugEnabled } from './DebugOverlay'
 
 /** Props for {@link GameCanvas}. */
 interface GameCanvasProps {
@@ -26,11 +27,12 @@ interface GameCanvasProps {
  */
 export function GameCanvas({ children }: GameCanvasProps) {
   const { scale, layout } = useGameScale()
-  const canvasW = layout === 'portrait' ? CANVAS_W_PORTRAIT : CANVAS_W
+  const canvasW = layout === 'portrait' ? CANVAS_W_PORTRAIT : CANVAS_W_LANDSCAPE
   const canvasH = layout === 'portrait' ? CANVAS_H_PORTRAIT : CANVAS_H
 
   return (
     <div className="game-canvas-felt w-screen h-dvh relative overflow-hidden">
+      {isDebugEnabled() && <DebugOverlay />}
       {/* Layer 1 — doodad zone: ambient decorations live here (viewport-relative, unscaled) */}
       <div className="absolute inset-0 pointer-events-none" />
       {/* Layer 2 — game canvas: centered within device safe areas so the

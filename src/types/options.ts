@@ -20,6 +20,13 @@ export type ScoringMode = 'standard' | 'vegas' | 'casual'
 /** How fast the AI4ME auto-player executes moves. */
 export type AISpeed = 'slow' | 'normal' | 'fast'
 
+/**
+ * How a tap/click on a card moves it.
+ * - `single-tap` — one tap auto-moves the card (foundation-first). Default.
+ * - `double-tap` — legacy behaviour: a double-tap/double-click auto-moves.
+ */
+export type InteractionMode = 'single-tap' | 'double-tap'
+
 /** All configurable game settings. */
 export interface GameOptions {
   drawMode: DrawMode
@@ -41,6 +48,8 @@ export interface GameOptions {
   aiSpeed: AISpeed
   /** Whether the AI4ME button is visible during play. */
   showAI4ME: boolean
+  /** How a tap/click on a card moves it (single-tap auto-move vs legacy double-tap). */
+  interactionMode: InteractionMode
 }
 
 export const DEFAULT_OPTIONS: GameOptions = {
@@ -55,4 +64,5 @@ export const DEFAULT_OPTIONS: GameOptions = {
   scoringMode: 'standard',
   aiSpeed: 'normal',
   showAI4ME: false,
+  interactionMode: 'single-tap',
 }

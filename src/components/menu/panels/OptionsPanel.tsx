@@ -12,7 +12,7 @@ import { Switch }  from '../../ui/Switch'
 import { Button }  from '../../ui/Button'
 
 export function OptionsPanel() {
-  const { deckLocation, setDeckLocation } = useOptionsStore()
+  const { deckLocation, setDeckLocation, interactionMode, setInteractionMode } = useOptionsStore()
   const clearStats = useStatsStore((s) => s.clearStats)
   const { canInstall, install } = useInstallPrompt()
   const [confirmClear, setConfirmClear] = useState(false)
@@ -97,6 +97,42 @@ export function OptionsPanel() {
                 <div className={`text-[13px] font-semibold ${isActive ? 'text-[#6ee08a]' : 'text-white/50'}`}>
                   {loc === 'left' ? 'Left (default)' : 'Right'}
                 </div>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Controls */}
+      <section className="flex flex-col gap-3">
+        <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
+          Controls
+        </h3>
+        <p className="text-white/30 text-[11px] leading-relaxed -mt-1">
+          Choose how tapping a card moves it. You can always drag cards by hand.
+        </p>
+        <div className="flex flex-col gap-2">
+          {([
+            { mode: 'single-tap', title: 'Single Tap (default)', desc: 'One tap sends a card to where it fits (foundation first).' },
+            { mode: 'double-tap', title: 'Double Tap',           desc: 'Double-tap or double-click to auto-move a card.' },
+          ] as const).map(({ mode, title, desc }) => {
+            const isActive = interactionMode === mode
+            return (
+              <button
+                key={mode}
+                onClick={() => setInteractionMode(mode)}
+                className={[
+                  'w-full p-3.5 rounded-xl border text-left',
+                  'transition-colors cursor-pointer',
+                  isActive
+                    ? 'bg-[#3da85e]/12 border-[#3da85e]/45'
+                    : 'bg-white/4 border-white/10 hover:border-white/22',
+                ].join(' ')}
+              >
+                <div className={`text-[13px] font-semibold ${isActive ? 'text-[#6ee08a]' : 'text-white/50'}`}>
+                  {title}
+                </div>
+                <div className="text-white/30 text-[11px] leading-relaxed mt-1">{desc}</div>
               </button>
             )
           })}

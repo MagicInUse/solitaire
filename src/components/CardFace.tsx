@@ -4,6 +4,7 @@ import { Heart, Diamond, Club, Spade, type LucideIcon } from 'lucide-react'
 import type { Card } from '../types/cards'
 import vqLogo from '../assets/veriquery-logo.png'
 import { useOptionsStore } from '../store/useOptionsStore'
+import { useAnimations } from '../hooks/useAnimations'
 import { getCardBack } from '../utils/cardBacks'
 
 const RANK_LABELS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as const
@@ -30,7 +31,7 @@ interface CardFaceProps {
  */
 export function CardFace({ card }: CardFaceProps) {
   const cardBackId = useOptionsStore((s) => s.cardBackId)
-  const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
+  const animationsEnabled = useAnimations()
   const back = getCardBack(cardBackId)
 
   const isRed = card.suit === 'hearts' || card.suit === 'diamonds'

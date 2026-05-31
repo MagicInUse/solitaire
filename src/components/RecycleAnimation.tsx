@@ -24,17 +24,33 @@ interface RecycleAnimationProps {
   deckLocation: 'left' | 'right'
   /** Active card back design id. */
   cardBackId: string
+  /** Logical canvas width for the current orientation (portrait 390 / landscape 462). */
+  canvasW?: number
+  /** Pixel gap between the stock and waste piles (portrait 6 / landscape 18). */
+  gap?: number
   /** Called after the final card's animation completes. */
   onComplete: () => void
 }
 
-export function RecycleAnimation({ visibleWasteCount, deckLocation, cardBackId, onComplete }: RecycleAnimationProps) {
+export function RecycleAnimation({ visibleWasteCount, deckLocation, cardBackId, canvasW = CANVAS_W, gap = GAP, onComplete }: RecycleAnimationProps) {
   const back = getCardBack(cardBackId)
   // `started` drives the translateX transition (false = initial position, true = stock position).
   // Double-rAF ensures the browser paints the initial state before the transition fires.
   const [started, setStarted] = useState(false)
   const [fading, setFading] = useState(false)
   const doneRef = useRef(false)
+
+  // Single-fire guard for the actual completion callback. Both the opacity
+  // transitionend AND the safety timeout below can race to call onComplete;
+  // resetStock() must run exactly once or the waste recycles twice.
+  const completedRef = useRef(false)
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
+  function complete() {
+    if (completedRef.current) return
+    completedRef.current = true
+    onCompleteRef.current()
+  }
 
   useEffect(() => {
     const raf1 = requestAnimationFrame(() => {
@@ -43,17 +59,36 @@ export function RecycleAnimation({ visibleWasteCount, deckLocation, cardBackId, 
     return () => cancelAnimationFrame(raf1)
   }, [])
 
+  // Safety net so `isRecycling` can never stick true and freeze the deck.
+  // - If there are no visible cards to animate, no transitionend ever fires, so
+  //   complete immediately.
+  // - Otherwise arm a max-duration timeout: slide (0.22s) + max stagger
+  //   (visibleWasteCount * 0.06s) + fade (0.12s) + buffer. If any transition is
+  //   skipped (browser quirk, reduced motion, interrupted paint) this still
+  //   completes the recycle.
+  useEffect(() => {
+    if (visibleWasteCount <= 0) {
+      complete()
+      return
+    }
+    const maxMs = 220 + visibleWasteCount * 60 + 120 + 250
+    const timer = setTimeout(complete, maxMs)
+    return () => clearTimeout(timer)
+    // complete/onComplete are accessed via refs; only re-arm on count change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleWasteCount])
+
   const wasteContainerW = visibleWasteCount <= 1 ? CARD_W : CARD_W + (visibleWasteCount - 1) * FAN_OFFSET
 
   // Canvas-local X positions for stock and waste fan start
   const stockX =
     deckLocation === 'left'
       ? PADDING
-      : CANVAS_W - PADDING - CARD_W
+      : canvasW - PADDING - CARD_W
   const wasteStartX =
     deckLocation === 'left'
-      ? PADDING + CARD_W + GAP
-      : CANVAS_W - PADDING - CARD_W - GAP - wasteContainerW
+      ? PADDING + CARD_W + gap
+      : canvasW - PADDING - CARD_W - gap - wasteContainerW
 
   // top card (highest i) starts first; bottom card (i=0, isLast) starts last
   const cards = Array.from({ length: visibleWasteCount }, (_, i) => {
@@ -79,7 +114,7 @@ export function RecycleAnimation({ visibleWasteCount, deckLocation, cardBackId, 
       }}
       onTransitionEnd={(e) => {
         if (fading && e.target === e.currentTarget && e.propertyName === 'opacity') {
-          onComplete()
+          complete()
         }
       }}
     >

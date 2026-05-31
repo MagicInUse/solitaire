@@ -4,7 +4,10 @@
  *
  * All values are logical pixels relative to a fixed canvas.
  * A CSS `transform: scale()` fits the canvas to any screen size at runtime.
- * Landscape orientation (844 × 390) matches a standard phone held sideways.
+ * Landscape orientation is a wide 462 × 390 canvas: the 7 tableau columns
+ * spread edge-to-edge (justify-between) with comfortable ~18 px gaps, so the
+ * board reclaims horizontal felt on wide screens while staying cohesive. The
+ * height (390) still bounds the scale, so card size matches portrait.
  * Portrait orientation (390 × 750) matches a standard phone held upright.
  */
 
@@ -19,6 +22,14 @@
 
 /** Logical canvas width in pixels (landscape — same as portrait width). */
 export const CANVAS_W = 390
+/**
+ * Logical canvas width in pixels for LANDSCAPE orientation.
+ *
+ * Wider than the 390 column-pack width so the 7 columns spread out with
+ * comfortable ~18 px gaps (via `justify-between`) instead of leaving the
+ * extra felt empty. Math: PADDING*2 + 7*CARD_W + 6*gap = 462 → gap = 18.
+ */
+export const CANVAS_W_LANDSCAPE = 462
 /** Logical canvas height in pixels (landscape). */
 export const CANVAS_H = 390
 

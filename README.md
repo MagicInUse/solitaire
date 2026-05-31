@@ -11,7 +11,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 ### Gameplay
 - **Klondike rules** — full move validation; draw-1 or draw-3 from stock
 - **Drag & drop** — pointer and touch via dnd-kit; drag entire face-up stacks
-- **Double-click / double-tap** — auto-sends a card to the correct foundation
+- **Single-tap to auto-move** — a plain tap (or click) sends a card to the correct foundation; this is the default. Prefer the classic feel? Switch to **double-tap** under **Settings → Options → Controls**
 - **Drop previews** — translucent ghost shows exactly where a stack will land
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
 - **Hints** — 💡 button highlights the best available move; cycles through all valid moves on repeated taps. A bounded multi-ply look-ahead (`filterUsefulHints`) suppresses purely redundant card-shuffling and only surfaces moves that make immediate progress or provably *unlock* progress within a few plies — including foundation back-moves that unbury hidden tableau cards. Highlights both the source and destination of each hint
@@ -32,6 +32,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Draw mode** — draw 1 or draw 3
 - **Stock recycles** — unlimited, 3, 2, or 1
 - **Undo limit** — unlimited, 3, 1, or disabled
+- **Controls** — single-tap (default) or double-tap to auto-move a card to its foundation
 
 ### Stats & Leaderboard
 - Lifetime stats: games played, won, win %, current streak, best streak, fastest win, best score
@@ -40,6 +41,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 ### Visuals & Options
 - **6 card backs** to choose from
 - **Animations toggle** — disable deal / flip / win cascade for low-power preference
+- **Reduced motion** — every animation also honours the OS `prefers-reduced-motion` setting, so the game stills itself automatically when the system requests it
 - **Deck position** — stock + waste on the left or right
 - **Hints toggle** — show or hide the hint button
 - **AI4ME toggle + speed** — show or hide the auto-player button and set its pace (Slow / Normal / Fast)
@@ -47,15 +49,17 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 ### Animations
 - **FLIP card transitions** — every card move (play, drag-drop, undo) uses Framer Motion `layoutId` FLIP so cards glide smoothly between piles; `layoutRoot` on the scaled canvas corrects FLIP math at any zoom level
 - **Draw from stock** — new waste card slides in horizontally from the stock direction (left-to-right or right-to-left depending on deck position setting)
-- **Initial fan reveal** — when the waste is empty and the first cards are drawn, all cards start stacked at the stock-adjacent edge and fan out toward the foundations; direction mirrors the deck position (right-side deck fans leftward, left-side deck fans rightward)
+- **Unified entrance** — every drawn card enters with the same horizontal slide from the stock pile, whether the fan was empty or already populated, so the deal always reads consistently
 - **Waste fan fold** — when a new draw arrives, the previous fan of cards collapses back toward the stock before the new card enters, giving a satisfying accordion effect
 - **Staggered fan reveal** — fanned waste cards enter with a 70 ms stagger (bottom card first) so the spread feels natural rather than all-at-once
 - **Recycle animation** — waste cards fly back to the stock pile in a pure CSS arc (no Framer Motion overhead); top card leads, each subsequent card follows with a 60 ms stagger; overlay fades out after the last card lands, then state resets
 - **Undo spring** — undone cards snap back with a spring (`stiffness: 380, damping: 28`) for a tactile "rubber-band" feel
+- **Foundation pop-in** — a card landing on a foundation springs up from a slightly smaller scale, giving immediate "snap home" feedback the instant it arrives
 - **Hint pulse** — hinted cards glow with a looping platinum-coloured pulse so the suggestion is impossible to miss
+- **Consistent cinematography** — shared duration / easing constants (`constants/animations.ts`) keep every motion on the same timing language, and a single `useAnimations()` hook gates all motion on both the in-app toggle and the OS reduced-motion preference
 
 ### Layout
-- **Adaptive canvas** — fixed 390 × 390 (landscape) or 390 × 750 (portrait) logical canvas, CSS-scaled to fit any viewport; scale capped at 2.5× on large screens
+- **Adaptive canvas** — fixed 462 × 390 (landscape) or 390 × 750 (portrait) logical canvas, CSS-scaled to fit any viewport; scale capped at 2.5× on large screens. The wider landscape canvas reclaims side felt and spreads the columns to an even gap while keeping edge room for future ambient decorations
 - **Portrait & landscape** — layout mode detected reliably on iOS (uses `document.documentElement` dimensions to avoid stale `window.innerWidth` on rotation)
 - **Safe-area aware** — respects notch, Dynamic Island, and home indicator insets
 - **PWA** — installable on iOS and Android; works fully offline; service-worker update banner
@@ -66,7 +70,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 
 1. Tap the **stock pile** to flip cards onto the waste pile.
 2. **Drag** cards or stacks between tableau columns — alternating colours, descending rank.
-3. **Double-tap** any card to auto-send it to the correct foundation.
+3. **Tap** any card to auto-send it to the correct foundation (or **double-tap** if you switched Controls).
 4. Build all four foundation piles from Ace → King to win.
 5. Tap **💡 Hint** if you're stuck, or open the menu for **Undo**.
 
@@ -128,7 +132,8 @@ src/
                 #   drag tracking, aiPlayer (greedy + planner move selection)
   store/        # Zustand stores: game state, player options, lifetime stats
   controllers/  # useGameController, useDeadGameDetector, useAutoComplete, useHintController
-  hooks/        # useAIPlayer, useGameScale (viewport → scale + mode), useTimer
+  hooks/        # useAIPlayer, useGameScale (viewport → scale + mode), useTimer,
+                #   useAnimations (motion gate: in-app toggle + OS reduced-motion)
   components/
     CardFace/   # SVG card face rendering
     CardView/   # Animated card wrapper (flip, layoutId)

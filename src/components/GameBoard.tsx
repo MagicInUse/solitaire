@@ -8,7 +8,7 @@ import { useEffect } from "react"
 import { LayoutGroup } from "framer-motion"
 import { useGameStore }    from "../store/useGameStore"
 import { useOptionsStore } from "../store/useOptionsStore"
-import { FAN_OFFSET }      from '../constants/canvas'
+import { FAN_OFFSET, CANVAS_W_PORTRAIT, CANVAS_W_LANDSCAPE } from '../constants/canvas'
 import { useGameScale }    from "../hooks/useGameScale"
 import { TableauColumn }   from "./TableauColumn"
 import { Foundation }      from "./Foundation"
@@ -53,6 +53,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   const elapsed = useTimer(!won && !isDealing, dealId)
   const { scale, layout }   = useGameScale()
+  const canvasW = layout === 'portrait' ? CANVAS_W_PORTRAIT : CANVAS_W_LANDSCAPE
   const foundationCardCount = foundations.reduce((n, p) => n + p.length, 0)
   const standardScore = calculateScore({ drawMode: drawMode as 1 | 3, timeSeconds: elapsed, moves: moveCount, undosUsed })
   const vegasProfit   = calculateVegasScore(foundationCardCount)
@@ -109,6 +110,13 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
       ? [stockEl, isRecycling ? wastePlaceholder : wasteEl, spacer, ...foundationEls]
       : [...foundationEls, spacer, isRecycling ? wastePlaceholder : wasteEl, stockEl]
 
+  // Horizontal gap between the 7 column slots. Landscape uses a wider 18 px gap
+  // so the columns spread edge-to-edge across the 462-wide canvas (reclaiming
+  // side felt) while staying grid-aligned with the foundations; portrait keeps
+  // the tight 6 px gap that exactly fills the 390-wide canvas.
+  const gridGap = layout === 'portrait' ? 'gap-1.5' : 'gap-[18px]'
+  const gridGapPx = layout === 'portrait' ? 6 : 18
+
   return (
     <LayoutGroup id="board">
     {/* DndContext is OUTSIDE GameCanvas so all dnd-kit coordinate math happens
@@ -124,7 +132,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
       <GameCanvas>
         <div className="w-full min-h-full p-2.25 flex flex-col gap-1.5">
           {/* Top row: Stock / Waste / gap / Foundations (order depends on deckLocation) */}
-          <div className="flex gap-1.5 items-start h-16.75">
+          <div className={`flex ${gridGap} items-start h-16.75`}>
             {topRowItems}
           </div>
 
@@ -196,7 +204,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
           />
 
           {/* Tableau */}
-          <div className="flex gap-1.5 items-start">
+          <div className={`flex ${gridGap} items-start`}>
             {tableau.map((pile, i) => (
               <TableauColumn
                 key={i}
@@ -231,6 +239,8 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
             visibleWasteCount={visibleWasteCount}
             deckLocation={deckLocation as 'left' | 'right'}
             cardBackId={cardBackId}
+            canvasW={canvasW}
+            gap={gridGapPx}
             onComplete={handleRecycleComplete}
           />
         )}

@@ -15,6 +15,7 @@ import { useRef, useState } from "react"
 import type { Card } from "../types/cards"
 import { useGameStore }      from "../store/useGameStore"
 import { useOptionsStore }   from "../store/useOptionsStore"
+import { useAnimations }     from "../hooks/useAnimations"
 import { canMoveStack }      from '../engine/rules'
 import { useSounds }         from '../hooks/useSounds'
 import { useAnimationStore } from '../store/useAnimationStore'
@@ -35,11 +36,12 @@ export interface GameControllerReturn {
 }
 
 export function useGameController(): GameControllerReturn {
-  const { tableau, foundations, waste, stock,
+  const { tableau, foundations, waste,
           moveCards, flipTableauTop, drawFromStock, resetStock } = useGameStore()
   const recycleCount  = useGameStore((s) => s.recycleCount)
 
-  const { drawMode, animationsEnabled, stockRecycles } = useOptionsStore()
+  const { drawMode, stockRecycles } = useOptionsStore()
+  const animationsEnabled = useAnimations()
   const { playSfx } = useSounds()
 
   const [dragSourceInfo, setDragSourceInfo] = useState<(DragSourceInfo & { cards: Card[] }) | null>(null)
@@ -164,10 +166,19 @@ export function useGameController(): GameControllerReturn {
   }
 
   function handleStockClick() {
-    if (stock.length > 0) {
+    // Read fresh store state rather than the render-time `stock`/`recycleCount`
+    // closures. Rapid taps fire multiple click handlers within one render cycle;
+    // a stale `stock.length > 0` would call drawFromStock() after the stock has
+    // already emptied, which silently early-returns and looks like "the deck
+    // stopped working."
+    const { stock: freshStock, recycleCount: freshRecycleCount } = useGameStore.getState()
+    const freshCanRecycle =
+      stockRecycles === 'unlimited' || freshRecycleCount < (stockRecycles as number)
+
+    if (freshStock.length > 0) {
       drawFromStock(drawMode)
       playSfx('CARD_DRAW')
-    } else if (canRecycle) {
+    } else if (freshCanRecycle) {
       if (animationsEnabled) {
         setIsRecycling(true)
       } else {

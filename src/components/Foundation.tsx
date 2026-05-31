@@ -6,7 +6,8 @@ import { CardView } from "./CardView"
 import { CardFace } from "./CardFace"
 import type { Card, Pile } from "../types/cards"
 import type { DragSourceInfo } from "./TableauColumn"
-import { useOptionsStore } from '../store/useOptionsStore'
+import { useAnimations } from '../hooks/useAnimations'
+import { DURATION } from '../constants/animations'
 
 const SUIT_SYMBOLS = ["\u2665", "\u2666", "\u2663", "\u2660"]
 
@@ -47,17 +48,18 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
     data: { toType: "foundation", toIndex: index },
   })
 
-  const animationsEnabled = useOptionsStore((s) => s.animationsEnabled)
+  const animationsEnabled = useAnimations()
 
-  // Snap-bounce: trigger when a new card arrives on this foundation pile
-  const [bouncing, setBouncing] = useState(false)
+  // Pop-in: each time a card is ADDED to this foundation, bump `popKey` so the
+  // arriving card remounts and springs from a smaller scale — immediate, tactile
+  // feedback that lands the instant the card arrives (no delay) and reads as the
+  // card "snapping" home. Removing a card (drag-back) leaves popKey unchanged, so
+  // the card below doesn't pop.
+  const [popKey, setPopKey] = useState(0)
   const prevLenRef = useRef(pile.length)
   useEffect(() => {
     if (pile.length > prevLenRef.current) {
-      // Delay matches the layoutId animation duration (0.15s) so bounce fires after the card lands
-      const id = setTimeout(() => setBouncing(true), 155)
-      prevLenRef.current = pile.length
-      return () => clearTimeout(id)
+      setPopKey((k) => k + 1)
     }
     prevLenRef.current = pile.length
   }, [pile.length])
@@ -76,13 +78,14 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
         <div className="w-full h-full rounded-[5px] border-2 border-dashed border-white/40 flex items-center justify-center text-[19px] text-white/40">{SUIT_SYMBOLS[index]}</div>
       ) : topCard ? (
         <motion.div
-          initial={false}
-          animate={{ scale: animationsEnabled && bouncing ? [1, 1.08, 1] : 1 }}
-          transition={bouncing
-            ? { duration: 0.25, times: [0, 0.35, 1], ease: ['easeOut', 'easeIn'] }
-            : { duration: 0 }
+          key={popKey}
+          initial={animationsEnabled && popKey > 0 ? { scale: 0.62 } : false}
+          animate={{ scale: 1 }}
+          transition={
+            animationsEnabled && popKey > 0
+              ? { type: 'spring', stiffness: 520, damping: 17, mass: 0.6 }
+              : { duration: 0 }
           }
-          onAnimationComplete={() => { if (bouncing) setBouncing(false) }}
         >
           <CardView
             card={topCard}
@@ -90,6 +93,7 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
             sourceType="foundation"
             sourceIndex={index}
             scale={scale}
+            layout={false}
           />
         </motion.div>
       ) : (
@@ -103,10 +107,10 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
           <motion.div
             key="foundation-preview"
             className="absolute inset-0 pointer-events-none rounded-[5px] overflow-hidden"
-            initial={{ opacity: 0 }}
+            initial={animationsEnabled ? { opacity: 0 } : false}
             animate={{ opacity: 0.55 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.10 }}
+            transition={{ duration: animationsEnabled ? DURATION.instant : 0 }}
           >
             <CardFace card={previewCard} />
           </motion.div>

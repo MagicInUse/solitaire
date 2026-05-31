@@ -6,6 +6,8 @@
  * and an optional `disabledNote` renders below the label (e.g. "Coming soon!").
  */
 
+import { useAnimations } from '../../hooks/useAnimations'
+
 interface SwitchProps {
   checked: boolean
   onChange: (value: boolean) => void
@@ -16,6 +18,7 @@ interface SwitchProps {
 }
 
 export function Switch({ checked, onChange, label, disabled, disabledNote }: SwitchProps) {
+  const animationsEnabled = useAnimations()
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex flex-col gap-0.5 min-w-0">
@@ -40,7 +43,7 @@ export function Switch({ checked, onChange, label, disabled, disabledNote }: Swi
         className={[
           'relative shrink-0 w-10.5 h-6 rounded-full',
           'outline-none focus-visible:ring-2 focus-visible:ring-white/40',
-          'transition-colors duration-200',
+          animationsEnabled ? 'transition-colors duration-200' : 'transition-none',
           disabled
             ? 'opacity-35 cursor-not-allowed'
             : 'cursor-pointer',
@@ -50,7 +53,7 @@ export function Switch({ checked, onChange, label, disabled, disabledNote }: Swi
         <span
           className={[
             'absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm',
-            'transition-transform duration-200',
+            animationsEnabled ? 'transition-transform duration-200' : 'transition-none',
             checked ? 'translate-x-4.5' : 'translate-x-0',
           ].join(' ')}
         />
