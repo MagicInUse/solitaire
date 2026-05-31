@@ -16,6 +16,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useGameStore }    from '../store/useGameStore'
 import { useOptionsStore } from '../store/useOptionsStore'
 import { getAIMove }       from '../utils/aiPlayer'
+import type { PlanAction } from '../engine/planner'
 
 interface SpeedConfig {
   /** Total delay (ms) before the effect re-fires to pick the next move. */
@@ -40,10 +41,18 @@ export interface UseAIPlayerReturn {
 export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
   const [isAIPlaying, setIsAIPlaying] = useState(false)
 
-  // Tracks the tableau column where a productive back-move just placed a card.
-  // Suppresses the immediate tableau→foundation reversal for one move so the
-  // follow-up that justified the back-move can execute first.
-  const backMoveDestCol = useRef<number | null>(null)
+  // The winning plan the AI is executing, if any.  Once the endgame solver
+  // finds a winning line, getAIMove returns it one step at a time; we persist
+  // the remainder here so the AI follows it straight to a full clear without
+  // re-solving every tick.
+  const planRef = useRef<PlanAction[]>([])
+
+  // Safety net: if the same (board + recycleCount) state ever recurs past the
+  // threshold the AI is cycling — stop it so the app can never spin forever.
+  // The greedy immediate-progress phase is monotone and the solver drives to a
+  // win, so this should never trip; it is a pure backstop.
+  const stateCounts = useRef<Map<string, number>>(new Map())
+  const LOOP_THRESHOLD = 3
 
   const {
     stock, waste, foundations, tableau,
@@ -57,7 +66,8 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
   // Reset AI when a new game starts
   useEffect(() => {
     setIsAIPlaying(false)
-    backMoveDestCol.current = null
+    stateCounts.current.clear()
+    planRef.current = []
   }, [dealId])
 
   const { stockRecycles, aiSpeed, drawMode } = useOptionsStore()
@@ -73,11 +83,36 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
       return
     }
 
-    const action = getAIMove({
+    // Loop guard (backstop): record this (board + recycleCount) state; if it
+    // recurs past the threshold the AI is cycling — stop it so the app never
+    // hangs.  Should never trip given the monotone greedy phase + solver.
+    //
+    // CRUCIAL: only sample at DECISION POINTS (no plan in flight).  A committed
+    // plan reaches its next gain via reversible King/stack shuffles, so board
+    // states legitimately recur *within* a plan — counting those would falsely
+    // flag a livelock.  Decision-point states, by contrast, strictly improve
+    // the monotone metric (a foundation card gained or a hidden card revealed)
+    // on every commit, so a genuine repeat there is a real cycle.
+    if (planRef.current.length === 0) {
+      const pileKey = (p: typeof waste) =>
+        p.map((c) => `${c.suit[0]}${c.rank}${c.faceUp ? 'u' : 'd'}`).join(',')
+      const stateKey =
+        `${pileKey(stock)}/${pileKey(waste)}/${foundations.map(pileKey).join('#')}/` +
+        `${tableau.map(pileKey).join('|')}~${recycleCount}`
+      const seen = (stateCounts.current.get(stateKey) ?? 0) + 1
+      stateCounts.current.set(stateKey, seen)
+      if (seen > LOOP_THRESHOLD) {
+        setIsAIPlaying(false)
+        return
+      }
+    }
+
+    const { action, plan } = getAIMove({
       stock, waste, foundations, tableau,
       recycleCount, stockRecycles, won, drawMode,
-      skipTableauFoundationCol: backMoveDestCol.current,
+      plan: planRef.current,
     })
+    planRef.current = plan
 
     if (action.type === 'idle') {
       // No useful moves remain — stop the AI and let normal UI handle it
@@ -97,8 +132,6 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
       setTimeout(() => {
         if (action.type === 'move') {
           const { hint } = action
-          // Track productive back-moves: suppress their immediate reversal next turn.
-          backMoveDestCol.current = hint.fromType === 'foundation' ? hint.toIndex : null
           moveCards({
             fromType:  hint.fromType,
             fromIndex: hint.fromIndex,
@@ -110,10 +143,8 @@ export function useAIPlayer(deadGame = false): UseAIPlayerReturn {
             flipTableauTop(hint.fromIndex)
           }
         } else if (action.type === 'draw') {
-          backMoveDestCol.current = null
           drawFromStock(drawMode)
         } else if (action.type === 'recycle') {
-          backMoveDestCol.current = null
           resetStock()
         }
       }, cfg.execDelay),

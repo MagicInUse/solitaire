@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { GameBoard }   from './components/GameBoard'
 import { MenuButton }  from './components/menu/MenuButton'
@@ -55,6 +55,19 @@ function UpdateBanner() {
 
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
+
+  // Dev/replay affordance: `?seed=<seed>` forces a specific reproducible deal
+  // on load, and the active seed is mirrored to `window.__solitaireSeed` so a
+  // failing game can be captured and replayed. Runs once per page load.
+  useEffect(() => {
+    const seed = new URLSearchParams(window.location.search).get('seed')
+    if (seed) useGameStore.getState().newGame(seed)
+  }, [])
+
+  const seed = useGameStore(s => s.seed)
+  useEffect(() => {
+    ;(window as unknown as { __solitaireSeed?: string }).__solitaireSeed = seed
+  }, [seed])
 
   return (
     <>

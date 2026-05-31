@@ -1,19 +1,20 @@
 /**
- * Tests for engine/deadGame.ts — specifically the isDirectProgress function
- * and the isDeadGame bug fixes.
+ * Tests for engine/deadGame.ts — the two independent axes it now exposes:
+ * isDeadGame (AXIS 1 — liveness) and hasReachableProgress (AXIS 2/3 — progress).
  *
  * Key scenarios validated:
- *  - isDirectProgress is more permissive than filterUsefulHints for empty columns
- *  - isDeadGame false positive fix: tableau reshuffles no longer trigger dead game
- *  - isDeadGame false negative fix: game IS dead when only circular moves exist
+ *  - isDeadGame is pure liveness: ANY legal move (incl. shuffles/back-moves)
+ *    in any reachable draw/recycle state means ALIVE
+ *  - hasReachableProgress is stronger: a board can be alive yet have no
+ *    reachable useful move (delegated to the canonical filterUsefulHints)
  *  - Buried waste card logic works correctly
- *  - Second-order waste check works correctly
  *  - Stock cards always mean not-dead
  */
 
 import { describe, it, expect } from 'vitest'
-import type { Card, Hint, Pile } from '../../types/cards'
-import { isDirectProgress, isDeadGame } from '../deadGame'
+import type { Card, Pile } from '../../types/cards'
+import { isDeadGame, hasReachableProgress, isStuckGame } from '../deadGame'
+import type { Board } from '../gameActions'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -29,98 +30,13 @@ function emptyFoundations(): [Pile, Pile, Pile, Pile] {
   return [[], [], [], []]
 }
 
-function hint(
-  fromType: Hint['fromType'],
-  fromIndex: number | undefined,
-  cardIndex: number,
-  toType: Hint['toType'],
-  toIndex: number,
-): Hint {
-  return { fromType, fromIndex, cardIndex, toType, toIndex }
-}
-
-// ─── isDirectProgress ─────────────────────────────────────────────────────────
-
-describe('isDirectProgress', () => {
-  const tableau = emptyTableau()
-
-  it('always true for foundation destination', () => {
-    expect(isDirectProgress(hint('tableau', 0, 3, 'foundation', 0), tableau)).toBe(true)
-    expect(isDirectProgress(hint('waste', undefined, 0, 'foundation', 1), tableau)).toBe(true)
-  })
-
-  it('always true for waste source', () => {
-    expect(isDirectProgress(hint('waste', undefined, 0, 'tableau', 3), tableau)).toBe(true)
-  })
-
-  it('always false for foundation source (back-moves handled separately)', () => {
-    expect(isDirectProgress(hint('foundation', 0, 5, 'tableau', 2), tableau)).toBe(false)
-  })
-
-  describe('tableau → tableau', () => {
-    it('true when reveals a hidden card', () => {
-      const t = emptyTableau()
-      // column 2: [hidden, face-up 7♠, face-up 6♥]  — cardIndex 1 reveals hidden
-      t[2] = [card('hearts', 9, false), card('spades', 7), card('hearts', 6)]
-      const h = hint('tableau', 2, 1, 'tableau', 5)
-      expect(isDirectProgress(h, t)).toBe(true)
-    })
-
-    it('true when empties the source column into a non-empty destination (cardIndex === 0)', () => {
-      const t = emptyTableau()
-      // column 0: [7♠] alone, moving to column 1 which has [8♥] — empties source into non-empty dest
-      t[0] = [card('spades', 7)]
-      t[1] = [card('hearts', 8)]
-      const h = hint('tableau', 0, 0, 'tableau', 1)
-      expect(isDirectProgress(h, t)).toBe(true)
-    })
-
-    it('false when empties source into empty destination (K-shuffle, no net gain)', () => {
-      // Moving a K-run from one column to an empty column is a pure shuffle:
-      // the source empties but the dest fills — zero net new empty columns.
-      // filterUsefulHints excludes this, and isDirectProgress now agrees.
-      // The BFS will still enqueue this state and explore it, just not short-circuit.
-      const t = emptyTableau()
-      t[0] = [card('spades', 13), card('hearts', 12)]
-      // t[1] is empty — moving whole K-run (cardIndex 0) to empty dest
-      const h = hint('tableau', 0, 0, 'tableau', 1)
-      expect(isDirectProgress(h, t)).toBe(false)
-    })
-
-    it('false for pure shuffle (no reveal, no empty source)', () => {
-      const t = emptyTableau()
-      // col 0: [5♠, 4♥] both face-up; col 1: [8♣]
-      t[0] = [card('spades', 5), card('hearts', 4)]
-      t[1] = [card('clubs', 8), card('diamonds', 7), card('clubs', 6)]
-      // moving 4♥ (cardIndex 1) from col 0 to col 1 top (6♣→5♥): not valid by rank
-      // but let's construct a valid shuffle: col 0 has [9♣], col 1 has [K♠, Q♥, J♠, 10♥]
-      t[0] = [card('clubs', 9)]
-      t[1] = [card('spades', 13), card('hearts', 12), card('clubs', 11), card('diamonds', 10)]
-      // moving 9♣ (cardIndex 0, but that EMPTIES source) to col 1 → actually empties source
-      // Let's use cardIndex === 0 for true pure shuffle (no empty, no reveal):
-      // Two face-up cards in source, moving the BOTTOM one (not the top, not all)
-      t[0] = [card('clubs', 7), card('hearts', 6)]
-      // cardIndex 1 moves only 6♥ (top card), source still has 7♣: not reveal, not empty
-      const h = hint('tableau', 0, 1, 'tableau', 2)
-      expect(isDirectProgress(h, t)).toBe(false)
-    })
-
-    it('false when card below is face-up (no hidden reveal)', () => {
-      const t = emptyTableau()
-      t[0] = [card('clubs', 7, true), card('hearts', 6, true)]
-      // cardIndex 1 moves 6♥; card below (index 0) is face-up — no reveal
-      const h = hint('tableau', 0, 1, 'tableau', 3)
-      expect(isDirectProgress(h, t)).toBe(false)
-    })
-  })
-})
-
 // ─── isDeadGame ───────────────────────────────────────────────────────────────
 
-describe('isDeadGame', () => {
-  it('returns false when stock has cards (can still draw)', () => {
+describe('isDeadGame (AXIS 1 — liveness)', () => {
+  it('returns false when a stock card can eventually be placed', () => {
+    // A♥ in the stock: drawing it surfaces a legal foundation play → ALIVE.
     expect(isDeadGame({
-      stock: [card('clubs', 5)],
+      stock: [card('hearts', 1)],
       waste: [],
       foundations: emptyFoundations(),
       tableau: emptyTableau(),
@@ -128,8 +44,24 @@ describe('isDeadGame', () => {
     })).toBe(false)
   })
 
-  it('returns true when no cards anywhere and no moves', () => {
-    // Edge case: empty board (all on foundations essentially)
+  it('returns true when stock cards exist but none can ever be placed', () => {
+    // Lone 5♣ with a frozen empty board and no recycle: it can be drawn but
+    // never placed (non-King can't go to an empty column, no Ace foundations).
+    // Under strict liveness, an undrawable-into-a-move card is dead.
+    expect(isDeadGame({
+      stock: [card('clubs', 5)],
+      waste: [],
+      foundations: emptyFoundations(),
+      tableau: emptyTableau(),
+      recyclesRemaining: 0,
+    })).toBe(true)
+  })
+
+  it('returns false when the board offers a foundation back-move (alive, though won)', () => {
+    // All 52 cards on the foundations, tableau empty. A King can legally be
+    // moved foundation→empty-column — a legal move of *some* kind — so under
+    // strict liveness the board is ALIVE. (The modal is suppressed on a won
+    // board separately, so this never surfaces to the player.)
     const foundations: [Pile, Pile, Pile, Pile] = [
       Array.from({ length: 13 }, (_, i) => card('hearts',   (i + 1) as Card['rank'])),
       Array.from({ length: 13 }, (_, i) => card('diamonds', (i + 1) as Card['rank'])),
@@ -142,7 +74,7 @@ describe('isDeadGame', () => {
       foundations,
       tableau: emptyTableau(),
       recyclesRemaining: 0,
-    })).toBe(true)  // technically game is won, but dead-game detection also returns true here
+    })).toBe(false)
   })
 
   it('returns false when tableau→tableau move reveals hidden card', () => {
@@ -255,43 +187,17 @@ describe('isDeadGame', () => {
     })).toBe(false)
   })
 
-  it('returns true when buried waste card leads only to a dead-end shuffle', () => {
-    // waste = [buried_K♠, top_useless]
-    // tableau has two empty columns — K♠ can land on either empty column
-    // After placing K♠ on empty col, no subsequent progress (all other cards can't go anywhere)
-    // Under the old code, placing K♠ would produce a waste→tableau "useful" follow-up check
-    // Under the new code, we check isDirectProgress on the resulting board directly
-    const tableau = emptyTableau()
-    // Make sure K♠ is in buried waste
-    // After placing K♠, the only moves available are other Ks trying to go to empty columns
-    // Let's have a Q♥ in another column that can't go anywhere useful
-    tableau[0] = [card('hearts', 12)]  // Q♥ — nothing to land on (no K♠ on tableau yet)
-    // waste = [K♠ (buried), 2♦ (top useless)]
-    // After recycle: K♠ → empty col (col 1, 2, 3... all empty)
-    // New board: tableau[0]=[Q♥], tableau[1]=[K♠] — can Q♥ land on K♠? Yes! Q♥(red) on K♠(black), rank 12=13-1 ✓
-    // So this is NOT a dead-end — Q♥ can land on K♠ after we place it
-    // That means this test would return false (not dead) which makes sense.
-    // Let me create an actual dead-end scenario:
-
-    // All Ks already placed, Q♥ is the only card left but nothing to go on
-    // (Actually if K is on tableau and Q♥ exists, Q can go on K)
-    // Hard to make a "truly stuck" scenario with buried waste in a small example.
-    // Use: buried card can land on tableau but follow-up boards have NO progress moves
-
-    // waste = [9♠ (buried), 3♦ (top, useless)]
-    // tableau: [10♦(red), 8♣(black)] — 9♠ can land on 10♦, but after that:
-    //   simTableau: col0=[10♦, 9♠], col1=[8♣]
-    //   8♣ can go on 9♠? 8♣(black) on 9♠(black) → SAME COLOR → no
-    //   simWaste (cards before 9♠) = [] → empty
-    //   computeHints on new board: 8♣ can't go on 9♠ (same color), nowhere else
-    //   → no direct progress → buried card scenario dead-ends
-
+  it('returns false when a buried waste card can be placed, even into a dead-end (liveness)', () => {
+    // waste = [9♠(buried), 3♥(top)]; tableau [10♦],[8♣]; unlimited recycles.
+    // Recycling surfaces 9♠, which legally lands on 10♦ — that placement alone
+    // keeps the game ALIVE under axis-1 liveness, even though no further
+    // PROGRESS follows (8♣ can't continue on 9♠, same colour). The "leads
+    // nowhere" judgement belongs to hasReachableProgress, not isDeadGame.
     const tableau2 = emptyTableau()
     tableau2[0] = [card('diamonds', 10)]  // 10♦ — 9♠ can land here
     tableau2[1] = [card('clubs', 8)]      // 8♣ — can't go on 9♠ (same colour black)
 
     const waste2: Pile = [card('spades', 9), card('hearts', 3)]
-    // top card (3♥) can't go anywhere (foundations empty, tableau top ranks are 10 and 8)
 
     expect(isDeadGame({
       stock: [],
@@ -299,7 +205,7 @@ describe('isDeadGame', () => {
       foundations: emptyFoundations(),
       tableau: tableau2,
       recyclesRemaining: Infinity,
-    })).toBe(true)
+    })).toBe(false)
   })
 
   it('returns false on direction-shift: buried card enables the original top card to play (draw-3 regression)', () => {
@@ -444,5 +350,169 @@ describe('isDeadGame', () => {
       recyclesRemaining: 1,
       drawMode: 3,
     })).toBe(true)
+  })
+})
+
+describe('hasReachableProgress (AXIS 2/3 — genuine advancement)', () => {
+  it('returns false when the board is alive but every move is a redundant shuffle', () => {
+    // col0 = K♠ Q♥ J♠ 10♥ (all face-up, no hidden); col1 = J♣.
+    // The ONLY legal move is 10♥ → J♣ — a pure shuffle that reveals nothing,
+    // empties nothing, and reaches no foundation. The game is ALIVE (a move
+    // exists) yet NO progress is reachable, so the AI must idle, not recycle.
+    const tableau = emptyTableau()
+    tableau[0] = [card('spades', 13), card('hearts', 12), card('spades', 11), card('hearts', 10)]
+    tableau[1] = [card('clubs', 11)]
+
+    expect(hasReachableProgress({
+      stock: [],
+      waste: [],
+      foundations: emptyFoundations(),
+      tableau,
+      recyclesRemaining: Infinity,
+    })).toBe(false)
+  })
+
+  it('returns true when a reachable waste card can be played to the tableau', () => {
+    // 9♠ is buried in the waste; after a recycle + draw it surfaces and lands
+    // on 10♦. Drawing the waste down is genuine progress per the ratified
+    // axis-2 definition (fromWaste), so progress IS reachable.
+    const tableau = emptyTableau()
+    tableau[0] = [card('diamonds', 10)]
+    tableau[1] = [card('clubs', 8)]
+    const waste: Pile = [card('spades', 9), card('hearts', 3)]
+
+    expect(hasReachableProgress({
+      stock: [],
+      waste,
+      foundations: emptyFoundations(),
+      tableau,
+      recyclesRemaining: Infinity,
+    })).toBe(true)
+  })
+
+  it('returns true when a tableau move reveals a hidden card', () => {
+    const tableau = emptyTableau()
+    tableau[0] = [card('hearts', 9, false), card('spades', 7), card('hearts', 6)]
+    tableau[3] = [card('hearts', 8)]
+
+    expect(hasReachableProgress({
+      stock: [],
+      waste: [],
+      foundations: emptyFoundations(),
+      tableau,
+      recyclesRemaining: 0,
+    })).toBe(true)
+  })
+
+  it('returns true when an Ace at the cycle-2 draw-3 position can reach the foundation', () => {
+    const waste: Pile = [
+      card('diamonds', 2),
+      card('clubs', 9),
+      card('hearts', 1),   // Ace — only exposed on cycle 2
+      card('spades', 5),
+      card('clubs', 8),
+      card('diamonds', 12),
+    ]
+    expect(hasReachableProgress({
+      stock: [],
+      waste,
+      foundations: emptyFoundations(),
+      tableau: emptyTableau(),
+      recyclesRemaining: 2,
+      drawMode: 3,
+    })).toBe(true)
+  })
+
+  it('returns false for the same Ace board when only 1 recycle is available', () => {
+    const waste: Pile = [
+      card('diamonds', 2),
+      card('clubs', 9),
+      card('hearts', 1),
+      card('spades', 5),
+      card('clubs', 8),
+      card('diamonds', 12),
+    ]
+    expect(hasReachableProgress({
+      stock: [],
+      waste,
+      foundations: emptyFoundations(),
+      tableau: emptyTableau(),
+      recyclesRemaining: 1,
+      drawMode: 3,
+    })).toBe(false)
+  })
+})
+
+describe('isStuckGame (AXIS 4 — modal: alive-but-unwinnable counts as over)', () => {
+  it('fires on a real alive-but-unwinnable endgame (the colored-rocks state)', () => {
+    // A genuine end position reached in play: every tableau card is face-up
+    // except a few, the stock is empty, and the only legal moves are reversible
+    // King/stack relocations between two empty columns plus a foundation
+    // back-move. The game is ALIVE (legal moves remain) but UNWINNABLE — the
+    // waste's 10♦/9♦ can never be placed and no shuffle advances anything.
+    const board: Board = {
+      stock: [],
+      waste: [card('diamonds', 10), card('diamonds', 9)],
+      foundations: [
+        [1, 2, 3, 4, 5, 6].map((r) => card('hearts', r as Card['rank'])),
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) => card('clubs', r as Card['rank'])),
+        [1, 2, 3, 4].map((r) => card('spades', r as Card['rank'])),
+        [1, 2, 3, 4].map((r) => card('diamonds', r as Card['rank'])),
+      ] as [Pile, Pile, Pile, Pile],
+      tableau: [
+        [card('hearts', 13), card('clubs', 12), card('diamonds', 11)],
+        [
+          card('clubs', 13), card('diamonds', 12), card('spades', 11), card('hearts', 10),
+          card('spades', 9), card('hearts', 8), card('spades', 7), card('diamonds', 6),
+        ],
+        [],
+        [],
+        [card('spades', 12, false), card('diamonds', 13, false), card('hearts', 12)],
+        [card('diamonds', 5, false), card('diamonds', 8)],
+        [
+          card('hearts', 7, false), card('spades', 5, false), card('clubs', 11, false),
+          card('spades', 13, false), card('hearts', 11), card('spades', 10), card('hearts', 9),
+          card('spades', 8), card('diamonds', 7), card('spades', 6),
+        ],
+      ] as [Pile, Pile, Pile, Pile, Pile, Pile, Pile],
+    }
+
+    // Strict liveness still says ALIVE (legal King-stack shuffles remain)…
+    expect(isDeadGame({
+      stock: board.stock,
+      waste: board.waste,
+      foundations: board.foundations,
+      tableau: board.tableau,
+      recyclesRemaining: Infinity,
+      drawMode: 3,
+    })).toBe(false)
+
+    // …but the modal predicate correctly calls it over: no reachable progress
+    // and no winnable plan.
+    expect(isStuckGame({ board, recyclesRemaining: Infinity, drawMode: 3 })).toBe(true)
+  })
+
+  it('does NOT fire while genuine progress is still reachable', () => {
+    // A tableau move reveals a hidden card — real progress remains, so the
+    // player must be left to keep playing.
+    const tableau = emptyTableau()
+    tableau[0] = [card('hearts', 9, false), card('spades', 7), card('hearts', 6)]
+    tableau[3] = [card('hearts', 8)]
+    const board: Board = { stock: [], waste: [], foundations: emptyFoundations(), tableau }
+
+    expect(isStuckGame({ board, recyclesRemaining: Infinity, drawMode: 3 })).toBe(false)
+  })
+
+  it('fires on a genuinely dead board (no legal move of any kind)', () => {
+    // Red-on-red singletons, no empties, no stock, no recycles — zero legal
+    // moves. The strictest dead case is a subset of "stuck".
+    const tableau = emptyTableau()
+    tableau[0] = [card('hearts', 2)]
+    tableau[1] = [card('hearts', 4)]
+    tableau[2] = [card('hearts', 6)]
+    tableau[3] = [card('hearts', 8)]
+    const board: Board = { stock: [], waste: [], foundations: emptyFoundations(), tableau }
+
+    expect(isStuckGame({ board, recyclesRemaining: 0, drawMode: 3 })).toBe(true)
   })
 })

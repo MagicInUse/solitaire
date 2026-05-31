@@ -37,7 +37,7 @@ export function DeadGameModal({ open, onClose, onNewGame, onOpenSettings }: Dead
         <div className="text-center">
           <div className="leading-none mb-2 flex justify-center"><BrokenCardIcon size={36} /></div>
           <h2 className="text-white/90 text-[18px] font-bold tracking-wide">
-            No Moves Left
+            No Winning Moves Left
           </h2>
           <p className="text-white/45 text-[12px] mt-1.5 leading-relaxed">
             This game can&apos;t be completed. Better luck next time!

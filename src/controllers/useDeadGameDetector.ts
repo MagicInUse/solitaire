@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react'
 import type React from 'react'
 import { useGameStore }    from '../store/useGameStore'
 import { useOptionsStore } from '../store/useOptionsStore'
-import { isDeadGame }      from '../engine/deadGame'
+import { isStuckGame }     from '../engine/deadGame'
 
 export function useDeadGameDetector(autoCompleting: boolean): [boolean, React.Dispatch<React.SetStateAction<boolean>>] {
   const stock       = useGameStore((s) => s.stock)
@@ -48,7 +48,10 @@ export function useDeadGameDetector(autoCompleting: boolean): [boolean, React.Di
     // If the user dismissed at this exact board state, don't re-fire
     if (dismissedAt === boardFingerprint) return
 
-    if (isDeadGame({ stock, waste, foundations, tableau, recyclesRemaining, drawMode })) {
+    // Full board (the planner confirmation in isStuckGame needs every pile).
+    const board = useGameStore.getState()
+
+    if (isStuckGame({ board, recyclesRemaining, drawMode })) {
       setDeadGame(true)
     } else {
       setDeadGame(false)

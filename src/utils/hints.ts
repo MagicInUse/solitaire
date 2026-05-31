@@ -9,5 +9,5 @@
  * refactor updates each consumer.
  */
 
-export { computeHints, filterUsefulHints } from '../engine/hints'
-export { isDeadGame } from '../engine/deadGame'
+export { computeHints, filterUsefulHints, applyHint, isProgressStep } from '../engine/hints'
+export { isDeadGame, hasReachableProgress } from '../engine/deadGame'

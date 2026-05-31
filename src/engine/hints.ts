@@ -96,118 +96,166 @@ export function computeHints({ waste, foundations, tableau }: BoardState): Hint[
   return hints
 }
 
-/**
- * Collects the set of useful follow-up move keys available on the given board.
- * Only considers non-foundation-source moves to prevent mutual recursion.
- * Keys encode all hint fields so two identical moves produce the same string.
- *
- * excludeFromIndex / excludeCardIndex identify the single tableau→foundation
- * circular reversal to skip (the just-placed card going straight back).
- * Pass -1 for both when building a baseline with no exclusion.
- */
-export function collectUsefulFollowUpKeys(
-  waste: Pile,
-  foundations: BoardState['foundations'],
-  tableau: BoardState['tableau'],
-  excludeFromIndex: number,
-  excludeCardIndex: number,
-): Set<string> {
-  const keys = new Set<string>()
-  const rawHints = computeHints({ waste, foundations, tableau })
+// ─── Canonical "useful move" predicate (multi-ply, bounded) ────────────────────
+//
+// THE single production definition of whether a move is worth showing/playing.
+// Both the hint display (filterUsefulHints) and the AI's reachable-progress
+// check (engine/deadGame.hasReachableProgress) derive from this, so the two can
+// never drift apart again.  It is a production twin of the test-only
+// engine/solver.redundancyOracle — independently implemented (over computeHints
+// rather than the oracle's own enumeration) so the harness can still cross-check
+// production against an independent second opinion.
+//
+// A move is PRODUCTIVE when it makes immediate progress, OR when within a
+// bounded multi-ply look-ahead of non-progress shuffles it unlocks a progress
+// move that was not already directly available.  Otherwise it is REDUNDANT
+// (a pure loop / dead-end shuffle).  UNKNOWN means the search budget was
+// exhausted; callers treat unknown conservatively (not useful) to stay loop-safe.
 
-  for (const fh of rawHints) {
-    if (fh.fromType === 'foundation') continue
+export type MoveUsefulness = 'productive' | 'redundant' | 'unknown'
 
-    if (fh.toType === 'foundation') {
-      if (
-        fh.fromType === 'tableau' &&
-        fh.fromIndex === excludeFromIndex &&
-        fh.cardIndex === excludeCardIndex
-      ) continue
-      keys.add(`${fh.fromType}:${fh.fromIndex ?? ''}:${fh.cardIndex}:foundation:${fh.toIndex}`)
-      continue
-    }
+/** Budgets, mirroring engine/solver.DEFAULT_REDUNDANCY_LIMITS. */
+const USEFUL_MAX_STATES = 4000
+const USEFUL_PLY_CAP = 4
 
-    // fh.toType === 'tableau'
-    if (fh.fromType !== 'tableau') {
-      keys.add(`waste::${fh.cardIndex}:tableau:${fh.toIndex}`)
-      continue
-    }
+interface ProgressMetrics {
+  foundation: number
+  hidden: number
+  emptyCols: number
+}
 
-    const srcPile = tableau[fh.fromIndex!]
-    const revealsHidden = fh.cardIndex > 0 && !srcPile[fh.cardIndex - 1].faceUp
-    const toEmpty = tableau[fh.toIndex].length === 0
-    if (toEmpty ? revealsHidden : (revealsHidden || fh.cardIndex === 0)) {
-      keys.add(`tableau:${fh.fromIndex}:${fh.cardIndex}:tableau:${fh.toIndex}`)
-    }
+function progressMetrics(b: BoardState): ProgressMetrics {
+  let foundation = 0
+  for (const f of b.foundations) foundation += f.length
+  let hidden = 0
+  let emptyCols = 0
+  for (const col of b.tableau) {
+    for (const c of col) if (!c.faceUp) hidden++
+    if (col.length === 0) emptyCols++
   }
-  return keys
+  return { foundation, hidden, emptyCols }
 }
 
 /**
- * Returns true when moving the top card of foundations[h.fromIndex] to
- * tableau[h.toIndex] unlocks at least one new useful follow-up move.
- *
- * Back-moves are worthless — and will immediately be contradicted by the
- * next hint — unless they create a new landing spot that triggers progress.
- * Classic circular trap: move A♠ foundation→tableau, then hint says move
- * A♠ tableau→foundation, repeat forever.
+ * AXIS 2 — did going from `before` to `after` advance any monotone metric
+ * (foundation up, hidden down, empty columns up) or play a waste card?  This is
+ * the canonical per-move progress boolean (identical in spirit to
+ * engine/solver.isProgress).
  */
-export function isProductiveBackMove(
-  h: Hint,
-  waste: Pile,
-  foundations: BoardState['foundations'],
-  tableau: BoardState['tableau'],
-): boolean {
-  const srcPile = foundations[h.fromIndex!]
-  if (srcPile.length === 0) return false
-  const card = srcPile[srcPile.length - 1]
-
-  // Aces: nothing can ever land on top of them → always circular.
-  if (card.rank - 1 < 1) return false
-
-  const simFoundations = foundations.map((p, i) =>
-    i === h.fromIndex ? p.slice(0, -1) : p
-  ) as BoardState['foundations']
-  const simTableau = tableau.map((p, i) =>
-    i === h.toIndex ? [...p, { ...card, faceUp: true }] : p
-  ) as BoardState['tableau']
-
-  const placedCardIndex = simTableau[h.toIndex].length - 1
-
-  const originalKeys = collectUsefulFollowUpKeys(waste, foundations, tableau, -1, -1)
-  const simKeys      = collectUsefulFollowUpKeys(
-    waste,
-    simFoundations,
-    simTableau,
-    h.toIndex,
-    placedCardIndex,
-  )
-
-  for (const key of simKeys) {
-    if (!originalKeys.has(key)) return true
-  }
-  return false
+export function isProgressStep(before: BoardState, after: BoardState, fromWaste: boolean): boolean {
+  const a = progressMetrics(before)
+  const b = progressMetrics(after)
+  return b.foundation > a.foundation || b.hidden < a.hidden || b.emptyCols > a.emptyCols || fromWaste
 }
 
 /**
- * Filters out hints that make no productive progress from the player's
- * perspective (display-only concern).
+ * Applies a hint as a placement on a BoardState, including the INTRINSIC
+ * auto-flip of the exposed source card (revealing it is part of the move).
+ * Operates only on the three display piles — no stock — since the multi-ply
+ * look-ahead only ever chases placements, never draws/recycles.
+ */
+export function applyHint(board: BoardState, h: Hint): BoardState {
+  const { waste, foundations, tableau } = board
+  const src: Pile =
+    h.fromType === 'waste'
+      ? waste
+      : h.fromType === 'tableau'
+        ? tableau[h.fromIndex!]
+        : foundations[h.fromIndex!]
+
+  const moving = src.slice(h.cardIndex).map(c => ({ ...c, faceUp: true }))
+  const newSrc = src.slice(0, h.cardIndex)
+
+  const nextTableau = [...tableau] as BoardState['tableau']
+  const nextFoundations = [...foundations] as BoardState['foundations']
+  const nextWaste = h.fromType === 'waste' ? newSrc : waste
+
+  if (h.fromType === 'tableau') {
+    // Auto-flip the newly exposed top card of the source column.
+    if (newSrc.length > 0 && !newSrc[newSrc.length - 1].faceUp) {
+      newSrc[newSrc.length - 1] = { ...newSrc[newSrc.length - 1], faceUp: true }
+    }
+    nextTableau[h.fromIndex!] = newSrc
+  } else if (h.fromType === 'foundation') {
+    nextFoundations[h.fromIndex!] = newSrc
+  }
+
+  const dest = h.toType === 'tableau' ? tableau[h.toIndex] : foundations[h.toIndex]
+  const newDest = [...dest, ...moving]
+  if (h.toType === 'tableau') nextTableau[h.toIndex] = newDest
+  else nextFoundations[h.toIndex] = newDest
+
+  return { waste: nextWaste, foundations: nextFoundations, tableau: nextTableau }
+}
+
+function hintKey(h: Hint): string {
+  return `${h.fromType}:${h.fromIndex ?? ''}:${h.cardIndex}:${h.toType}:${h.toIndex}`
+}
+
+function boardStateKey(b: BoardState): string {
+  const pile = (p: Pile) => p.map(c => `${c.suit[0]}${c.rank}${c.faceUp ? 'u' : 'd'}`).join(',')
+  return pile(b.waste) + '#' + b.foundations.map(pile).join('#') + '|' + b.tableau.map(pile).join('|')
+}
+
+/**
+ * Classifies a single move on `board` as productive / redundant / unknown using
+ * a bounded multi-ply look-ahead.  Faithful production twin of
+ * engine/solver.redundancyOracle.
+ */
+export function classifyMove(board: BoardState, h: Hint): MoveUsefulness {
+  const after = applyHint(board, h)
+
+  // Immediate progress → unambiguously productive.
+  if (isProgressStep(board, after, h.fromType === 'waste')) return 'productive'
+
+  // Progress moves already available WITHOUT playing `h` — the baseline this
+  // move must beat to count as productive.
+  const baseline = new Set<string>()
+  for (const p of computeHints(board)) {
+    if (isProgressStep(board, applyHint(board, p), p.fromType === 'waste')) baseline.add(hintKey(p))
+  }
+
+  // Bounded DFS through non-progress shuffles, looking for newly-unlocked
+  // progress.  `board` and `after` are pre-visited so we never "rediscover"
+  // baseline progress merely by undoing the move.
+  const visited = new Set<string>([boardStateKey(board), boardStateKey(after)])
+  const stack: { b: BoardState; depth: number }[] = [{ b: after, depth: 0 }]
+
+  let explored = 0
+  while (stack.length > 0) {
+    if (explored >= USEFUL_MAX_STATES) return 'unknown'
+    const node = stack.pop()!
+    explored++
+
+    for (const p of computeHints(node.b)) {
+      const child = applyHint(node.b, p)
+      if (isProgressStep(node.b, child, p.fromType === 'waste')) {
+        // Progress the baseline did not already offer, reaching a not-yet-seen
+        // state (i.e. not merely undoing `h`) → newly unlocked → productive.
+        if (!baseline.has(hintKey(p)) && !visited.has(boardStateKey(child))) return 'productive'
+        continue // known / reversal progress — don't dig through it.
+      }
+      if (node.depth >= USEFUL_PLY_CAP) continue
+      const key = boardStateKey(child)
+      if (visited.has(key)) continue
+      visited.add(key)
+      stack.push({ b: child, depth: node.depth + 1 })
+    }
+  }
+
+  return 'redundant'
+}
+
+/**
+ * Returns the subset of `hints` worth showing to the player / playing by the
+ * AI, ordered so that moves making IMMEDIATE progress come first and merely
+ * progress-unlocking shuffles follow.
  *
- * A tableau→tableau move is useful only when it either:
- *  - Reveals at least one face-down card, OR
- *  - Empties the source column entirely (cardIndex === 0), creating an open
- *    slot that a King can fill.
- *
- * Moves satisfying neither condition are pure shuffles — they rearrange
- * already-accessible cards between non-empty piles with no strategic upside.
- *
- * Non-tableau destinations and non-tableau sources are always kept.
- * Foundation back-moves are suppressed when any non-back-move hint exists,
- * and otherwise only kept when they're genuinely productive.
- *
- * NOTE: This function is for DISPLAY only. Never call it from isDeadGame —
- * its filtering can cause false dead-game positives.  Use engine/deadGame.ts.
+ * "Useful" = `classifyMove` returns `productive`.  Redundant shuffles, circular
+ * back-moves, and budget-exhausted `unknown` moves are dropped.  The
+ * immediate-first ordering is what keeps the AI loop-free: it only ever plays a
+ * non-progress shuffle when no immediate-progress move exists, and takes the
+ * real progress the instant a shuffle unlocks it.
  */
 export function filterUsefulHints(
   hints: Hint[],
@@ -215,26 +263,18 @@ export function filterUsefulHints(
   foundations: BoardState['foundations'],
   waste: Pile = [],
 ): Hint[] {
-  const filtered = hints.filter(h => {
-    if (h.toType !== 'tableau') return true
-    if (h.fromType === 'foundation') return true
-    if (h.fromType !== 'tableau') return true
+  const board: BoardState = { waste, foundations, tableau }
+  const immediate: Hint[] = []
+  const unlockOnly: Hint[] = []
 
-    const srcPile = tableau[h.fromIndex!]
-    const revealsHidden = h.cardIndex > 0 && !srcPile[h.cardIndex - 1].faceUp
-    const toEmpty = tableau[h.toIndex].length === 0
-
-    if (toEmpty) {
-      return revealsHidden
+  for (const h of hints) {
+    const after = applyHint(board, h)
+    if (isProgressStep(board, after, h.fromType === 'waste')) {
+      immediate.push(h)
+      continue
     }
-    return revealsHidden || h.cardIndex === 0
-  })
+    if (classifyMove(board, h) === 'productive') unlockOnly.push(h)
+  }
 
-  const nonBacktrack = filtered.filter(h => h.fromType !== 'foundation')
-  if (nonBacktrack.length > 0) return nonBacktrack
-
-  const productiveBackMoves = filtered
-    .filter(h => h.fromType === 'foundation')
-    .filter(h => isProductiveBackMove(h, waste, foundations, tableau))
-  return productiveBackMoves.slice(0, 1)
+  return [...immediate, ...unlockOnly]
 }

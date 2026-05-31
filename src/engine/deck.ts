@@ -8,6 +8,7 @@
  */
 
 import type { Card, Pile, Suit, Rank } from '../types/cards'
+import { makeRng, randomSeed, type Rng } from './rng'
 
 const SUITS: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
 
@@ -25,11 +26,17 @@ export function buildDeck(): Card[] {
 /**
  * Returns a new array with the elements in a uniformly random order
  * (Fisher-Yates / Knuth shuffle).  Does not mutate the input.
+ *
+ * @param arr - The array to shuffle (left untouched).
+ * @param rng - Optional deterministic random source.  When provided, the
+ *   shuffle is fully reproducible; when omitted it falls back to
+ *   `Math.random()` for ordinary (non-seeded) play.
  */
-export function shuffle<T>(arr: T[]): T[] {
+export function shuffle<T>(arr: T[], rng?: Rng): T[] {
+  const rand = rng ? rng.next : Math.random
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(rand() * (i + 1))
     ;[a[i], a[j]] = [a[j], a[i]]
   }
   return a
@@ -41,15 +48,28 @@ export function shuffle<T>(arr: T[]): T[] {
  *  - Remaining cards placed face-down on the stock.
  *  - Waste and all four foundations start empty.
  *
- * @param deck - Optional pre-built deck.  Defaults to a fresh shuffled deck.
+ * @param opts.deck - Optional pre-built deck.  Defaults to a fresh deck.
+ * @param opts.seed - Optional string seed for a reproducible deal.  When
+ *   provided (and no explicit `rng` is given) the deal is fully
+ *   deterministic and `seed` is echoed back in the result.
+ * @param opts.rng - Optional pre-built deterministic random source.  Takes
+ *   precedence over `seed`.
+ * @returns The dealt board plus the `seed` that produced it (a freshly
+ *   generated random seed when none was supplied).
  */
-export function dealKlondike(deck?: Card[]): {
+export function dealKlondike(opts: {
+  deck?: Card[]
+  seed?: string
+  rng?: Rng
+} = {}): {
   stock: Pile
   waste: Pile
   foundations: [Pile, Pile, Pile, Pile]
   tableau: [Pile, Pile, Pile, Pile, Pile, Pile, Pile]
+  seed: string
 } {
-  const cards = shuffle(deck ?? buildDeck())
+  const rng = opts.rng ?? makeRng(opts.seed ?? randomSeed())
+  const cards = shuffle(opts.deck ?? buildDeck(), rng)
   const tableau: [Pile, Pile, Pile, Pile, Pile, Pile, Pile] = [[], [], [], [], [], [], []]
 
   let cursor = 0
@@ -62,5 +82,5 @@ export function dealKlondike(deck?: Card[]): {
 
   const stock = cards.slice(cursor).map(c => ({ ...c, faceUp: false }))
 
-  return { stock, waste: [], foundations: [[], [], [], []], tableau }
+  return { stock, waste: [], foundations: [[], [], [], []], tableau, seed: rng.seed }
 }

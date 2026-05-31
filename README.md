@@ -14,8 +14,9 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Double-click / double-tap** — auto-sends a card to the correct foundation
 - **Drop previews** — translucent ghost shows exactly where a stack will land
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
-- **Hints** — 💡 button highlights the best available move; cycles through all valid moves on repeated taps; suppresses redundant card-shuffling moves and only suggests productive foundation back-moves (e.g. to unbury hidden tableau cards); highlights both the source and destination of each hint
-- **Dead-game detection** — shows a modal when no moves remain; correctly handles games with recycles still permitted by performing a one-level lookahead on each buried waste card: a card that can legally land on the tableau is only counted as "alive" if doing so enables at least one subsequent useful move — preventing the modal from being suppressed by dead-end placements that lead nowhere
+- **Hints** — 💡 button highlights the best available move; cycles through all valid moves on repeated taps. A bounded multi-ply look-ahead (`filterUsefulHints`) suppresses purely redundant card-shuffling and only surfaces moves that make immediate progress or provably *unlock* progress within a few plies — including foundation back-moves that unbury hidden tableau cards. Highlights both the source and destination of each hint
+- **AI4ME auto-player** — an optional one-tap solver that plays the game for you. A greedy engine takes every strictly-progressive move, and a bounded breadth-first **planner** (`engine/planner.ts`) takes over in tangled mid-game and all-face-up endgame positions to drive the shortest line straight to a full clear. Toggle the button and tune its speed (Slow / Normal / Fast) in **Settings → Assist**; Slow and Normal flash each card before moving so you can follow along
+- **Dead-game detection** — shows a modal the moment the game is no longer winnable. Detection is two-stage: a strict-liveness check confirms whether *any* legal move exists, and a planner-backed `isStuckGame` check then asks whether any **progress** or **win** is still reachable. Once only reversible King/stack shuffles remain — moves that push cards around without ever advancing — the game is declared over ("No Winning Moves Left") even though the board is technically still movable
 - **Auto-complete** — cascades remaining cards to foundations when the game is won
 - **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts rendered above the card cascade
 - **Persisted game state** — game survives page reloads and app restarts via `localStorage`
@@ -41,6 +42,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Animations toggle** — disable deal / flip / win cascade for low-power preference
 - **Deck position** — stock + waste on the left or right
 - **Hints toggle** — show or hide the hint button
+- **AI4ME toggle + speed** — show or hide the auto-player button and set its pace (Slow / Normal / Fast)
 
 ### Animations
 - **FLIP card transitions** — every card move (play, drag-drop, undo) uses Framer Motion `layoutId` FLIP so cards glide smoothly between piles; `layoutRoot` on the scaled canvas corrects FLIP math at any zoom level
@@ -75,7 +77,8 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 | | |
 |---|---|
 | Framework | [React 19](https://react.dev) + [TypeScript](https://www.typescriptlang.org) |
-| Build | [Vite 6](https://vitejs.dev) |
+| Build | [Vite 8](https://vitejs.dev) |
+| Tests | [Vitest 4](https://vitest.dev) — engine unit tests + seeded AI simulation harness |
 | State | [Zustand 5](https://zustand-demo.pmnd.rs) with `persist` middleware |
 | Drag & Drop | [dnd-kit 6](https://dndkit.com) |
 | Animations | [Framer Motion 12](https://www.framer.com/motion/) |
@@ -96,6 +99,12 @@ pnpm dev
 # Type-check + production build
 pnpm build
 
+# Run the engine tests + AI simulation harness
+pnpm test
+
+# Watch tests during development
+pnpm test:watch
+
 # Preview the production build locally
 pnpm preview
 
@@ -111,21 +120,27 @@ pnpm generate-pwa-assets
 src/
   types/        # Core domain types (Card, Pile, GameState, GameOptions, GameStats)
   constants/    # Canvas dimensions (landscape + portrait)
-  utils/        # scoring, hints, layout compression, card backs, drag tracking
+  engine/       # Pure game logic: rules, deck, gameActions, hints, deadGame,
+                #   and the BFS planner (planner.ts) that powers AI4ME + stuck
+                #   detection. solver.ts + __tests__ are a test-only oracle and
+                #   seeded AI simulation harness that cross-examine production
+  utils/        # scoring, hints (re-exports), layout compression, card backs,
+                #   drag tracking, aiPlayer (greedy + planner move selection)
   store/        # Zustand stores: game state, player options, lifetime stats
-  hooks/        # useGameScale (viewport → canvas scale + layout mode), useTimer
+  controllers/  # useGameController, useDeadGameDetector, useAutoComplete, useHintController
+  hooks/        # useAIPlayer, useGameScale (viewport → scale + mode), useTimer
   components/
     CardFace/   # SVG card face rendering
     CardView/   # Animated card wrapper (flip, layoutId)
     DragStack/  # Multi-card drag overlay
     Foundation/ # Foundation pile drop target
     TableauColumn/  # Tableau column with compressed offset layout
-    GameBoard/  # Top-level game controller and HUD
+    GameBoard/  # Top-level game controller and HUD (incl. AI4ME button)
     GameCanvas/ # Full-screen felt world + CSS scale boundary
     WinCascade/     # Win animation — cards cascade to foundations
-    DeadGameModal/ # Modal shown when no moves remain
+    DeadGameModal/ # Modal shown when no winning moves remain
     menu/          # MenuButton + MenuModal with tabbed panels
-      panels/      # NewGame, Rules, Visuals, Options, Leaderboard
+      panels/      # NewGame, Rules, Visuals, Options, Assist, Leaderboard
     ui/            # Modal, Button, Switch primitives
 ```
 

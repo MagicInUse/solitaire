@@ -3,10 +3,11 @@
  * Zustand store managing the full Klondike Solitaire game state.
  *
  * State is persisted to `localStorage` under the key `"solitaire-game"`
- * (v3 — bumped to clear v2 state after schema additions).
+ * (v4 — bumped when `seed` + `moveLog` were added for reproducible deals).
  *
  * Transient fields (`history`, `activeHint`) are excluded from persistence
- * via `partialize` and reset to defaults on hydration.
+ * via `partialize` and reset to defaults on hydration.  `seed` and `moveLog`
+ * ARE persisted so an in-progress game can be replayed deterministically.
  */
 
 import { create } from 'zustand'
@@ -14,6 +15,10 @@ import { persist } from 'zustand/middleware'
 import type { Pile, GameStateSnapshot, Hint } from '../types/cards'
 import { dealKlondike } from '../engine/deck'
 import { checkWin }    from '../engine/gameLogic'
+import {
+  applyDraw, applyRecycle, applyMove, applyFlip,
+  type Board, type LoggedAction,
+} from '../engine/gameActions'
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
@@ -50,6 +55,16 @@ interface GameStore {
   /** Number of times the waste pile has been recycled to stock this game. */
   recycleCount: number
 
+  /** String seed that produced this game's deal; enables exact replay. */
+  seed: string
+  /**
+   * Ordered log of every board-mutating action this game (draw, recycle,
+   * move, flip, undo).  Combined with `seed` it deterministically
+   * reconstructs the current board via engine/replay — the unit of
+   * reproducibility for human games.
+   */
+  moveLog: LoggedAction[]
+
   // ── Transient (not persisted) ────────────────────────────────────────────
   /** Board snapshots for undo; not persisted — cleared on page reload. */
   history: GameStateSnapshot[]
@@ -63,8 +78,12 @@ interface GameStore {
   drawId: number
 
   // ── Actions ──────────────────────────────────────────────────────────────
-  /** Start a fresh game with a new shuffled deal. */
-  newGame: () => void
+  /**
+   * Start a fresh game with a new shuffled deal.
+   * @param seed - Optional string seed for a reproducible deal (dev/replay).
+   *   When omitted a fresh random seed is generated.
+   */
+  newGame: (seed?: string) => void
   /**
    * Draw cards from the stock onto the waste pile.
    * The caller must pass the current `drawMode` (1 or 3) from useOptionsStore.
@@ -113,6 +132,7 @@ export const useGameStore = create<GameStore>()(
       moveCount: 0,
       undosUsed: 0,
       recycleCount: 0,
+      moveLog: [],
 
       // ── Transient defaults (populated in memory only) ───────────────────
       history: [],
@@ -123,13 +143,14 @@ export const useGameStore = create<GameStore>()(
 
       // ── Actions ─────────────────────────────────────────────────────────
 
-      newGame() {
+      newGame(seed?: string) {
         set({
-          ...dealKlondike(),
+          ...dealKlondike(seed ? { seed } : {}),
           won: false,
           moveCount: 0,
           undosUsed: 0,
           recycleCount: 0,
+          moveLog: [],
           history: [],
           activeHint: null,
           isDealing: true,
@@ -141,88 +162,76 @@ export const useGameStore = create<GameStore>()(
         const state = get()
         if (state.stock.length === 0) return
 
-        const count = Math.min(drawMode, state.stock.length)
-
-        // stock[last] is the top — slice from the end
-        const newStock = state.stock.slice(0, state.stock.length - count)
-        const drawn = state.stock
-          .slice(state.stock.length - count)
-          .map((c) => ({ ...c, faceUp: true }))
+        const board: Board = {
+          stock: state.stock, waste: state.waste,
+          foundations: state.foundations, tableau: state.tableau,
+        }
+        const next = applyDraw(board, drawMode)
 
         set({
-          stock: newStock,
-          waste: [...state.waste, ...drawn],
+          stock: next.stock,
+          waste: next.waste,
           drawId: get().drawId + 1,
           history: [...state.history, snapshot(state)].slice(-MAX_HISTORY),
+          moveLog: [...state.moveLog, { type: 'draw', drawMode }],
           activeHint: null,
         })
       },
 
       resetStock() {
         const state = get()
+        const board: Board = {
+          stock: state.stock, waste: state.waste,
+          foundations: state.foundations, tableau: state.tableau,
+        }
+        const next = applyRecycle(board)
         set({
-          stock: [...state.waste].reverse().map((c) => ({ ...c, faceUp: false })),
-          waste: [],
+          stock: next.stock,
+          waste: next.waste,
           recycleCount: state.recycleCount + 1,
           history: [...state.history, snapshot(state)].slice(-MAX_HISTORY),
+          moveLog: [...state.moveLog, { type: 'recycle' }],
           activeHint: null,
         })
       },
 
       moveCards({ fromType, fromIndex, cardIndex, toType, toIndex }) {
         const state = get()
-
-        // ── Resolve source pile ──────────────────────────────────────────
-        let sourcePile: Pile
-        if (fromType === 'waste') sourcePile = state.waste
-        else if (fromType === 'tableau') sourcePile = state.tableau[fromIndex!]
-        else sourcePile = state.foundations[fromIndex!]
-
-        const movingCards = sourcePile.slice(cardIndex)
-        const newSource   = sourcePile.slice(0, cardIndex)
-
-        // ── Resolve destination pile ─────────────────────────────────────
-        const destPile = toType === 'tableau'
-          ? state.tableau[toIndex]
-          : state.foundations[toIndex]
-        const newDest = [...destPile, ...movingCards]
-
-        // ── Build next state immutably ───────────────────────────────────
-        const nextTableau     = [...state.tableau]     as typeof state.tableau
-        const nextFoundations = [...state.foundations] as typeof state.foundations
-        const nextWaste       = fromType === 'waste' ? newSource : state.waste
-
-        if (fromType === 'tableau')    nextTableau[fromIndex!]     = newSource
-        if (fromType === 'foundation') nextFoundations[fromIndex!] = newSource
-
-        if (toType === 'tableau') nextTableau[toIndex]      = newDest
-        else                      nextFoundations[toIndex]  = newDest
-
-        const won = checkWin(nextFoundations)
+        const board: Board = {
+          stock: state.stock, waste: state.waste,
+          foundations: state.foundations, tableau: state.tableau,
+        }
+        const next = applyMove(board, { fromType, fromIndex, cardIndex, toType, toIndex })
+        const won = checkWin(next.foundations)
 
         set({
-          tableau:     nextTableau,
-          foundations: nextFoundations,
-          waste:       nextWaste,
+          tableau:     next.tableau,
+          foundations: next.foundations,
+          waste:       next.waste,
           won,
           moveCount:   state.moveCount + 1,
           history:     [...state.history, snapshot(state)].slice(-MAX_HISTORY),
+          moveLog:     [...state.moveLog, { type: 'move', fromType, fromIndex, cardIndex, toType, toIndex }],
           activeHint:  null,
         })
       },
 
       flipTableauTop(colIndex) {
-        const nextTableau = [...get().tableau] as GameStore['tableau']
-        const col = [...nextTableau[colIndex]]
-        if (col.length > 0 && !col[col.length - 1].faceUp) {
-          col[col.length - 1] = { ...col[col.length - 1], faceUp: true }
-          nextTableau[colIndex] = col
-          set({ tableau: nextTableau })
+        const state = get()
+        const board: Board = {
+          stock: state.stock, waste: state.waste,
+          foundations: state.foundations, tableau: state.tableau,
         }
+        const next = applyFlip(board, colIndex)
+        if (next === board) return // top already face-up — nothing to log
+        set({
+          tableau: next.tableau,
+          moveLog: [...state.moveLog, { type: 'flip', colIndex }],
+        })
       },
 
       undo() {
-        const { history, undosUsed } = get()
+        const { history, undosUsed, moveLog } = get()
         if (history.length === 0) return
         const prev = history[history.length - 1]
         set({
@@ -230,6 +239,7 @@ export const useGameStore = create<GameStore>()(
           won:        false,
           undosUsed:  undosUsed + 1,
           history:    history.slice(0, -1),
+          moveLog:    [...moveLog, { type: 'undo' }],
           activeHint: null,
         })
       },
@@ -244,8 +254,8 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: 'solitaire-game',
-      version: 3,
-      // Exclude transient state from localStorage
+      version: 4,
+      // Exclude transient state from localStorage (seed + moveLog ARE persisted)
       partialize: ({ history: _h, activeHint: _a, isDealing: _d, dealId: _id, drawId: _did, setDealing: _sd, ...persisted }) => persisted,
     }
   )
