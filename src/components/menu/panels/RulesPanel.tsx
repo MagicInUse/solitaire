@@ -42,11 +42,11 @@ export function RulesPanel() {
                   'w-full px-3.5 py-2.5 rounded-xl border text-left',
                   'transition-colors cursor-pointer',
                   isActive
-                    ? 'bg-[#3da85e]/12 border-[#3da85e]/45'
+                  ? 'bg-white/10 border-white/30'
                     : 'bg-white/4 border-white/10 hover:border-white/22',
                 ].join(' ')}
               >
-                <div className={`text-[13px] font-semibold mb-0.5 ${isActive ? 'text-[#6ee08a]' : 'text-white/65'}`}>
+                <div className={`text-[13px] font-semibold mb-0.5 ${isActive ? 'text-white/85' : 'text-white/65'}`}>
                   {m.label}
                 </div>
                 <div className="text-white/30 text-[11px] leading-snug">{m.desc}</div>
@@ -70,7 +70,7 @@ export function RulesPanel() {
                 'flex-1 py-2.5 rounded-xl text-[13px] font-semibold',
                 'border transition-colors cursor-pointer',
                 drawMode === mode
-                  ? 'bg-[#3da85e]/15 border-[#3da85e]/55 text-[#6ee08a]'
+                  ? 'bg-white/12 border-white/32 text-white/90'
                   : 'bg-white/5 border-white/12 text-white/45 hover:border-white/28 hover:text-white/65',
               ].join(' ')}
             >
@@ -102,7 +102,7 @@ export function RulesPanel() {
                 'flex-1 py-2 rounded-xl text-[13px] font-semibold',
                 'border transition-colors cursor-pointer',
                 stockRecycles === v
-                  ? 'bg-[#3da85e]/15 border-[#3da85e]/55 text-[#6ee08a]'
+                  ? 'bg-white/12 border-white/32 text-white/90'
                   : 'bg-white/5 border-white/12 text-white/45 hover:border-white/28 hover:text-white/65',
               ].join(' ')}
             >
@@ -129,7 +129,7 @@ export function RulesPanel() {
                 'flex-1 py-2 rounded-xl text-[13px] font-semibold',
                 'border transition-colors cursor-pointer',
                 undoLimit === v
-                  ? 'bg-[#3da85e]/15 border-[#3da85e]/55 text-[#6ee08a]'
+                  ? 'bg-active-15 border-active-55 text-active'
                   : 'bg-white/5 border-white/12 text-white/45 hover:border-white/28 hover:text-white/65',
               ].join(' ')}
             >

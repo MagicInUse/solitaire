@@ -21,7 +21,7 @@ const SIZES = {
 }
 
 const VARIANTS = {
-  primary: 'bg-[#3da85e] hover:bg-[#46c06c] active:bg-[#329e54] text-white',
+  primary: 'bg-white/20 hover:bg-white/28 active:bg-white/18 text-white font-semibold',
   ghost:   'bg-black/35 hover:bg-black/52 active:bg-black/65 text-white/85',
   danger:  'bg-red-950/60 hover:bg-red-900/70 active:bg-red-900/90 text-red-300',
 }

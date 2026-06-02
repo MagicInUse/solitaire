@@ -49,7 +49,7 @@ export function AssistPanel() {
               className={[
                 'flex-1 py-2 rounded-lg border text-[12px] font-medium capitalize transition-colors cursor-pointer',
                 aiSpeed === speed
-                  ? 'bg-[#9C528B]/20 border-[#9C528B]/45 text-[#e8b8de]'
+                  ? 'bg-white/12 border-white/35 text-white/90'
                   : 'bg-white/4 border-white/10 text-white/50 hover:border-white/22',
               ].join(' ')}
             >

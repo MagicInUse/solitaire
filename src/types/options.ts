@@ -27,6 +27,9 @@ export type AISpeed = 'slow' | 'normal' | 'fast'
  */
 export type InteractionMode = 'single-tap' | 'double-tap'
 
+/** Visual theme for the UI and felt. */
+export type ColorScheme = 'standard' | 'dark' | 'cosmic'
+
 /** All configurable game settings. */
 export interface GameOptions {
   drawMode: DrawMode
@@ -50,6 +53,8 @@ export interface GameOptions {
   showAI4ME: boolean
   /** How a tap/click on a card moves it (single-tap auto-move vs legacy double-tap). */
   interactionMode: InteractionMode
+  /** Visual theme for the UI and felt. */
+  colorScheme: ColorScheme
 }
 
 export const DEFAULT_OPTIONS: GameOptions = {
@@ -65,4 +70,5 @@ export const DEFAULT_OPTIONS: GameOptions = {
   aiSpeed: 'normal',
   showAI4ME: false,
   interactionMode: 'single-tap',
+  colorScheme: 'standard',
 }

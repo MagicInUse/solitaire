@@ -83,7 +83,7 @@ export function OptionsPanel() {
                   'w-full p-3.5 rounded-xl border text-left',
                   'transition-colors cursor-pointer',
                   isActive
-                    ? 'bg-[#3da85e]/12 border-[#3da85e]/45'
+                    ? 'bg-white/10 border-white/30'
                     : 'bg-white/4 border-white/10 hover:border-white/22',
                 ].join(' ')}
               >
@@ -94,7 +94,7 @@ export function OptionsPanel() {
                     <>{foundationBlocks}<div className="flex-1" />{deckBlocks}</>
                   )}
                 </div>
-                <div className={`text-[13px] font-semibold ${isActive ? 'text-[#6ee08a]' : 'text-white/50'}`}>
+                <div className={`text-[13px] font-semibold ${isActive ? 'text-white/85' : 'text-white/50'}`}>
                   {loc === 'left' ? 'Left (default)' : 'Right'}
                 </div>
               </button>
@@ -125,11 +125,11 @@ export function OptionsPanel() {
                   'w-full p-3.5 rounded-xl border text-left',
                   'transition-colors cursor-pointer',
                   isActive
-                    ? 'bg-[#3da85e]/12 border-[#3da85e]/45'
+                    ? 'bg-white/10 border-white/30'
                     : 'bg-white/4 border-white/10 hover:border-white/22',
                 ].join(' ')}
               >
-                <div className={`text-[13px] font-semibold ${isActive ? 'text-[#6ee08a]' : 'text-white/50'}`}>
+                <div className={`text-[13px] font-semibold ${isActive ? 'text-white/85' : 'text-white/50'}`}>
                   {title}
                 </div>
                 <div className="text-white/30 text-[11px] leading-relaxed mt-1">{desc}</div>

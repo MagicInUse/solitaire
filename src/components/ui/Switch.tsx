@@ -47,7 +47,7 @@ export function Switch({ checked, onChange, label, disabled, disabledNote }: Swi
           disabled
             ? 'opacity-35 cursor-not-allowed'
             : 'cursor-pointer',
-          checked && !disabled ? 'bg-[#3da85e]' : 'bg-white/20',
+          checked && !disabled ? 'bg-white/35' : 'bg-white/20',
         ].join(' ')}
       >
         <span

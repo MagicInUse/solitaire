@@ -4,6 +4,7 @@ import { GameBoard }   from './components/GameBoard'
 import { MenuButton }  from './components/menu/MenuButton'
 import { MenuModal }   from './components/menu/MenuModal'
 import { useGameStore } from './store/useGameStore'
+import { useOptionsStore } from './store/useOptionsStore'
 
 /**
  * Shown when a new service worker is waiting to activate.
@@ -68,6 +69,12 @@ export default function App() {
   useEffect(() => {
     ;(window as unknown as { __solitaireSeed?: string }).__solitaireSeed = seed
   }, [seed])
+
+  // Apply the theme to the document root
+  const colorScheme = useOptionsStore(s => s.colorScheme)
+  useEffect(() => {
+    document.documentElement.dataset.theme = colorScheme
+  }, [colorScheme])
 
   return (
     <>

@@ -39,12 +39,14 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - Leaderboard: rolling **7-day top 10** wins sorted by score; resets weekly so the board stays competitive; Vegas scores displayed with a `$` prefix
 
 ### Visuals & Options
+- **Theme selector** — choose between Standard (green felt), Dark (moody), or unlock the secret Cosmic theme with stars and a moon ✨ (tap the Dark button 5 times in 2 seconds)
 - **6 card backs** to choose from
 - **Animations toggle** — disable deal / flip / win cascade for low-power preference
 - **Reduced motion** — every animation also honours the OS `prefers-reduced-motion` setting, so the game stills itself automatically when the system requests it
 - **Deck position** — stock + waste on the left or right
 - **Hints toggle** — show or hide the hint button
 - **AI4ME toggle + speed** — show or hide the auto-player button and set its pace (Slow / Normal / Fast)
+- **Controls** — single-tap (default) or double-tap to auto-move a card to its foundation
 
 ### Animations
 - **FLIP card transitions** — every card move (play, drag-drop, undo) uses Framer Motion `layoutId` FLIP so cards glide smoothly between piles; `layoutRoot` on the scaled canvas corrects FLIP math at any zoom level

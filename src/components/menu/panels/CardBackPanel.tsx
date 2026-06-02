@@ -30,7 +30,7 @@ export function CardBackPanel() {
                 'flex flex-col items-center gap-1.5 p-2 rounded-xl border',
                 'transition-colors cursor-pointer',
                 isActive
-                  ? 'border-[#3da85e]/55 bg-[#3da85e]/10'
+                  ? 'border-white/30 bg-white/10'
                   : 'border-white/10 bg-white/4 hover:border-white/22',
               ].join(' ')}
             >
@@ -58,7 +58,7 @@ export function CardBackPanel() {
 
               <span
                 className={`text-[10px] font-medium ${
-                  isActive ? 'text-[#6ee08a]' : 'text-white/40'
+                  isActive ? 'text-active' : 'text-white/40'
                 }`}
               >
                 {back.label}

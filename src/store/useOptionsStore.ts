@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { GameOptions, DrawMode, DeckLocation, ScoringMode, AISpeed, InteractionMode } from '../types/options'
+import type { GameOptions, DrawMode, DeckLocation, ScoringMode, AISpeed, InteractionMode, ColorScheme } from '../types/options'
 import { DEFAULT_OPTIONS } from '../types/options'
 
 interface OptionsStore extends GameOptions {
@@ -23,6 +23,7 @@ interface OptionsStore extends GameOptions {
   setAiSpeed: (v: AISpeed) => void
   setShowAI4ME: (v: boolean) => void
   setInteractionMode: (v: InteractionMode) => void
+  setColorScheme: (v: ColorScheme) => void
 }
 
 export const useOptionsStore = create<OptionsStore>()(
@@ -41,17 +42,22 @@ export const useOptionsStore = create<OptionsStore>()(
       setAiSpeed:            (aiSpeed)            => set({ aiSpeed }),
       setShowAI4ME:          (showAI4ME)          => set({ showAI4ME }),
       setInteractionMode:    (interactionMode)    => set({ interactionMode }),
+      setColorScheme:        (colorScheme)        => set({ colorScheme }),
     }),
     {
       name: 'solitaire-options',
-      version: 2,
+      version: 3,
       // v1 → v2: introduce interactionMode. Existing installs adopt the new
       // single-tap default (the previous implicit behaviour was double-tap,
       // but single-tap is the new product default for everyone).
+      // v2 → v3: introduce colorScheme. Existing installs default to 'standard'.
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<GameOptions>
         if (version < 2 && state.interactionMode === undefined) {
           state.interactionMode = DEFAULT_OPTIONS.interactionMode
+        }
+        if (version < 3 && state.colorScheme === undefined) {
+          state.colorScheme = DEFAULT_OPTIONS.colorScheme
         }
         return state as GameOptions
       },

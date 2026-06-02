@@ -1,5 +1,43 @@
 @import "tailwindcss";
 
+/* ─── CSS Custom Properties ──────────────────────────────────────────────── */
+:root {
+  /* Standard theme — green felt */
+  --color-letterbox-bg: #0c3018;
+  --color-felt-bg: #1a6b3a;
+  --color-felt-weave-light: rgba(255, 255, 255, 0.025);
+  --color-felt-weave-dark: rgba(0, 0, 0, 0.035);
+  --color-active-rgb: 61 168 94;       /* #3da85e */
+  --color-active-text-rgb: 110 224 138; /* #6ee08a */
+  --color-card-face-bg: #ffffff;
+  --color-card-red: #c0392b;
+  --color-card-black: #1a1a1a;
+  --color-card-border-shadow: rgba(0, 0, 0, 0.30);
+}
+
+/* Button colors */
+:root {
+  --color-btn-primary-base: #3da85e;
+  --color-btn-primary-hover: #46c06c;
+  --color-btn-primary-active: #329e54;
+}
+
+/* Dark & Cosmic themes — space/atmospheric (raisin black) with CSS variable overrides */
+[data-theme="dark"],
+[data-theme="cosmic"] {
+  --color-letterbox-bg: #0a0a0f;
+  --color-felt-bg: #030308;
+  --color-felt-weave-light: rgba(255, 255, 255, 0.008);
+  --color-active-rgb: 200 202 216;      /* #c8cad8 */
+  --color-active-text-rgb: 224 224 236; /* #e0e0ec */
+  --color-card-face-bg: #1c1c2e;
+  --color-card-red: #a07a8a;
+  --color-card-black: #ddd0e5;
+  --color-btn-primary-base: #c8cad8;
+  --color-btn-primary-hover: #d8dae6;
+  --color-btn-primary-active: #b8bacc;
+}
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
@@ -22,7 +60,7 @@
   html {
     /* Match the body felt so there's no white flash during initial paint or
        when iOS briefly composites the page during a PWA resume. */
-    background-color: #0c3018;
+    background-color: var(--color-letterbox-bg);
     /* Inset all content away from the notch, Dynamic Island, and home indicator.
        Works in conjunction with viewport-fit=cover (set in index.html) so the
        html background fills the unsafe areas while content stays clear of them.
@@ -36,7 +74,7 @@
 
   body {
     /* Darker felt for letterbox areas outside the game canvas */
-    background-color: #0c3018;
+    background-color: var(--color-letterbox-bg);
     background-image:
       repeating-linear-gradient(
         45deg,
@@ -61,33 +99,194 @@
   }
 }
 
-/* Game table felt — brighter green, subtle diagonal + horizontal weave */
+/* Game table felt — green theme with subtle diagonal + horizontal weave */
 @layer utilities {
   .game-canvas-felt {
-    background-color: #1a6b3a;
+    background-color: var(--color-felt-bg);
     background-image:
       repeating-linear-gradient(
         45deg,
-        rgba(255, 255, 255, 0.025) 0px,
-        rgba(255, 255, 255, 0.025) 1px,
+        var(--color-felt-weave-light) 0px,
+        var(--color-felt-weave-light) 1px,
         transparent 1px,
         transparent 8px
       ),
       repeating-linear-gradient(
         -45deg,
-        rgba(255, 255, 255, 0.025) 0px,
-        rgba(255, 255, 255, 0.025) 1px,
+        var(--color-felt-weave-light) 0px,
+        var(--color-felt-weave-light) 1px,
         transparent 1px,
         transparent 8px
       ),
       repeating-linear-gradient(
         0deg,
-        rgba(0, 0, 0, 0.035) 0px,
-        rgba(0, 0, 0, 0.035) 1px,
+        var(--color-felt-weave-dark) 0px,
+        var(--color-felt-weave-dark) 1px,
         transparent 1px,
         transparent 4px
       );
     background-size: 8px 8px, 8px 8px, 4px 4px;
+  }
+
+  /* Dark theme — moody night without stars (plain dark weave) */
+  [data-theme="dark"] .game-canvas-felt {
+    background-image:
+      /* Weave texture (subtle) */
+      repeating-linear-gradient(
+        45deg,
+        var(--color-felt-weave-light) 0px,
+        var(--color-felt-weave-light) 1px,
+        transparent 1px,
+        transparent 8px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        var(--color-felt-weave-light) 0px,
+        var(--color-felt-weave-light) 1px,
+        transparent 1px,
+        transparent 8px
+      );
+    background-size: 8px 8px, 8px 8px;
+    background-position: 0 0, 0 0;
+    background-repeat: no-repeat;
+  }
+
+  /* Cosmic theme — night sky with glowy stars and moon (children's room aesthetic, easter egg) */
+  [data-theme="cosmic"] .game-canvas-felt {
+    background-image:
+      /* Weave texture (subtle) */
+      repeating-linear-gradient(
+        45deg,
+        var(--color-felt-weave-light) 0px,
+        var(--color-felt-weave-light) 1px,
+        transparent 1px,
+        transparent 8px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        var(--color-felt-weave-light) 0px,
+        var(--color-felt-weave-light) 1px,
+        transparent 1px,
+        transparent 8px
+      ),
+      /* Moon (bottom left) - larger */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><filter id="moonglow"><feGaussianBlur stdDeviation="2.5"/><feComponentTransfer><feFuncA type="linear" slope="0.7"/></feComponentTransfer></filter><filter id="shadowblur"><feGaussianBlur stdDeviation="5"/><feComponentTransfer><feFuncA type="linear" slope="1"/></feComponentTransfer></filter></defs><circle cx="50" cy="50" r="35" fill="%23fffacd" filter="url(%23moonglow)"/><circle cx="62" cy="38" r="35" fill="%23030308" opacity="1" filter="url(%23shadowblur)"/></svg>'),
+      /* Star 1 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(15deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.42"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23add8e6" filter="url(%23sg)"/></svg>'),
+      /* Star 2 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-22deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.40"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffb6c1" filter="url(%23sg)"/></svg>'),
+      /* Star 3 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(8deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.43"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23d8bfd8" filter="url(%23sg)"/></svg>'),
+      /* Star 4 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-35deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.41"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23b0e0e6" filter="url(%23sg)"/></svg>'),
+      /* Star 5 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(28deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.40"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffdab9" filter="url(%23sg)"/></svg>'),
+      /* Star 6 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-12deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.39"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffffff" filter="url(%23sg)"/></svg>'),
+      /* Star 7 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(42deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.0"/><feComponentTransfer><feFuncA type="linear" slope="0.38"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23add8e6" filter="url(%23sg)"/></svg>'),
+      /* Star 8 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-8deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.0"/><feComponentTransfer><feFuncA type="linear" slope="0.40"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffb6c1" filter="url(%23sg)"/></svg>'),
+      /* Star 9 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(18deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.0"/><feComponentTransfer><feFuncA type="linear" slope="0.37"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23d8bfd8" filter="url(%23sg)"/></svg>'),
+      /* Star 10 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-25deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.0"/><feComponentTransfer><feFuncA type="linear" slope="0.39"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23b0e0e6" filter="url(%23sg)"/></svg>'),
+      /* Star 11 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(33deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.0"/><feComponentTransfer><feFuncA type="linear" slope="0.38"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffdab9" filter="url(%23sg)"/></svg>'),
+      /* Star 12 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(5deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.0"/><feComponentTransfer><feFuncA type="linear" slope="0.36"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffffff" filter="url(%23sg)"/></svg>'),
+      /* Star 13 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-45deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.42"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23add8e6" filter="url(%23sg)"/></svg>'),
+      /* Star 14 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(11deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.40"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffb6c1" filter="url(%23sg)"/></svg>'),
+      /* Star 15 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-18deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.41"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23d8bfd8" filter="url(%23sg)"/></svg>'),
+      /* Star 16 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(38deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.40"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23b0e0e6" filter="url(%23sg)"/></svg>'),
+      /* Star 17 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-30deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.42"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffdab9" filter="url(%23sg)"/></svg>'),
+      /* Star 18 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(24deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.4"/><feComponentTransfer><feFuncA type="linear" slope="0.40"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffffff" filter="url(%23sg)"/></svg>'),
+      /* Star 19 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(-52deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.0"/><feComponentTransfer><feFuncA type="linear" slope="0.37"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23add8e6" filter="url(%23sg)"/></svg>'),
+      /* Star 20 */
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="transform:rotate(20deg)"><defs><filter id="sg"><feGaussianBlur stdDeviation="1.0"/><feComponentTransfer><feFuncA type="linear" slope="0.39"/></feComponentTransfer></filter></defs><polygon points="50,8 59,35 88,35 65,54 74,82 50,62 26,82 35,54 12,35 41,35" fill="%23ffb6c1" filter="url(%23sg)"/></svg>');
+    background-size:
+      8px 8px, 8px 8px,
+      120px 120px,
+      44px 44px, 36px 36px, 38px 38px, 42px 42px, 37px 37px, 48px 48px,
+      28px 28px, 30px 30px, 26px 26px, 32px 32px, 29px 29px, 34px 34px,
+      44px 44px, 39px 39px, 42px 42px, 38px 38px, 46px 46px, 26px 26px, 31px 31px;
+    background-position:
+      0 0, 0 0,
+      12% 87%,
+      20% 10%, 35% 8%, 52% 12%, 68% 28%, 78% 32%, 88% 38%,
+      15% 28%, 32% 32%, 48% 25%, 72% 18%, 92% 60%,
+      18% 48%, 38% 42%, 55% 50%, 75% 45%, 88% 52%,
+      22% 68%, 42% 75%, 62% 70%, 78% 78%;
+    background-repeat: no-repeat;
+  }
+
+  /* Card face colors with theme support */
+  .card-face-bg {
+    background-color: var(--color-card-face-bg);
+  }
+
+  /* Dark mode: brighten card borders for visibility against dark faces */
+  [data-theme="dark"] [class*="card-face-bg"],
+  [data-theme="dark"] [class*="card-back-"],
+  [data-theme="cosmic"] [class*="card-face-bg"],
+  [data-theme="cosmic"] [class*="card-back-"] {
+    border-color: rgb(var(--color-active-rgb) / 0.35) !important;
+  }
+
+  .card-text-red {
+    color: var(--color-card-red);
+  }
+
+  .card-text-black {
+    color: var(--color-card-black);
+  }
+
+  /* Dark mode: enhance card text visibility with outline/shadow */
+  [data-theme="dark"] .card-text-red,
+  [data-theme="dark"] .card-text-black,
+  [data-theme="cosmic"] .card-text-red,
+  [data-theme="cosmic"] .card-text-black {
+    -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.6);
+    paint-order: stroke fill;
+  }
+
+  /* Dark mode: suit icons get drop-shadow for depth */
+  [data-theme="dark"] svg[stroke-width="0"],
+  [data-theme="cosmic"] svg[stroke-width="0"] {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+  }
+
+  /* Active/accent color utilities with opacity support */
+  .bg-active-10 { background-color: rgb(var(--color-active-rgb) / 0.1); }
+  .bg-active-12 { background-color: rgb(var(--color-active-rgb) / 0.12); }
+  .bg-active-15 { background-color: rgb(var(--color-active-rgb) / 0.15); }
+  .border-active-45 { border-color: rgb(var(--color-active-rgb) / 0.45); }
+  .border-active-55 { border-color: rgb(var(--color-active-rgb) / 0.55); }
+  .text-active { color: rgb(var(--color-active-text-rgb) / 1); }
+
+  /* Primary button with theme support */
+  .btn-primary-themed {
+    background-color: var(--color-btn-primary-base);
+    transition-property: background-color;
+    transition-duration: 150ms;
+  }
+  .btn-primary-themed:hover {
+    background-color: var(--color-btn-primary-hover);
+  }
+  .btn-primary-themed:active {
+    background-color: var(--color-btn-primary-active);
+  }
+
+  /* Switch toggle checked state */
+  .switch-checked {
+    background-color: rgb(var(--color-active-rgb) / 1);
   }
 }
 
@@ -110,6 +309,11 @@
 .card-back-veriquery         { background: #1d1e2c; }
 .card-back-veriquery-inner   { background: #e9e9e9; }
 .card-back-veriquery-border  { border-color: rgba(156, 82, 139, 0.75); }
+
+[data-theme="dark"] .card-back-veriquery-inner,
+[data-theme="cosmic"] .card-back-veriquery-inner   { background: #2a2742; }
+[data-theme="dark"] .card-back-veriquery-border,
+[data-theme="cosmic"] .card-back-veriquery-border  { border-color: rgba(160, 122, 138, 0.75); }
 
 .card-back-forest          { background: repeating-linear-gradient(135deg, #0a2e14 0px, #0a2e14 6px, #0c3518 6px, #0c3518 12px); }
 .card-back-forest-inner    { background: #c8e6c9; }

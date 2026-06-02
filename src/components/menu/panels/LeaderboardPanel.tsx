@@ -42,7 +42,7 @@ export function LeaderboardPanel() {
       {/* Streak + bests */}
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-white/6 rounded-xl p-2.5 text-center">
-          <div className="text-[#6ee08a] text-[18px] font-bold leading-none mb-1">
+          <div className="text-active text-[18px] font-bold leading-none mb-1">
             {stats.currentStreak}
           </div>
           <div className="text-white/35 text-[10px] uppercase tracking-wider">
@@ -55,7 +55,7 @@ export function LeaderboardPanel() {
 
         {stats.bestTimeSeconds !== null ? (
           <div className="bg-white/6 rounded-xl p-2.5 text-center">
-            <div className="text-[#6ee08a] text-[18px] font-bold leading-none mb-1">
+            <div className="text-active text-[18px] font-bold leading-none mb-1">
               {formatTime(stats.bestTimeSeconds)}
             </div>
             <div className="text-white/35 text-[10px] uppercase tracking-wider">
@@ -99,7 +99,7 @@ export function LeaderboardPanel() {
                 className="grid grid-cols-4 text-[12px] px-2 py-[7px] rounded-lg hover:bg-white/5 transition-colors"
               >
                 <span className="text-white/30">{i + 1}</span>
-                <span className="text-right text-[#6ee08a] font-semibold">
+                <span className="text-right text-active font-semibold">
                   {entry.scoringMode === 'vegas' ? `$${entry.score}` : entry.score}
                 </span>
                 <span className="text-right text-white/65">
