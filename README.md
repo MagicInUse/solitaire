@@ -153,7 +153,10 @@ src/
 
 ---
 
+## Attribution
+
+The VeriQuery logo is © VeriQuery.com and is used with permission. While this project is MIT-licensed, the VeriQuery logo may only be used to identify this project and VeriQuery.com.
+
 ## License
 
 MIT
-
