@@ -27,7 +27,8 @@
 [data-theme="cosmic"] {
   --color-letterbox-bg: #0a0a0f;
   --color-felt-bg: #030308;
-  --color-felt-weave-light: rgba(255, 255, 255, 0.008);
+  --color-felt-weave-light: rgba(255, 255, 255, 0.04);
+  --color-felt-weave-dark: rgba(0, 0, 0, 0.12);
   --color-active-rgb: 200 202 216;      /* #c8cad8 */
   --color-active-text-rgb: 224 224 236; /* #e0e0ec */
   --color-card-face-bg: #1c1c2e;
@@ -128,10 +129,10 @@
     background-size: 8px 8px, 8px 8px, 4px 4px;
   }
 
-  /* Dark theme — moody night without stars (plain dark weave) */
+  /* Dark theme — moody night with subtle felt weave texture */
   [data-theme="dark"] .game-canvas-felt {
     background-image:
-      /* Weave texture (subtle) */
+      /* Diagonal weave (light) */
       repeating-linear-gradient(
         45deg,
         var(--color-felt-weave-light) 0px,
@@ -145,10 +146,18 @@
         var(--color-felt-weave-light) 1px,
         transparent 1px,
         transparent 8px
+      ),
+      /* Horizontal weave (dark) for depth */
+      repeating-linear-gradient(
+        0deg,
+        var(--color-felt-weave-dark) 0px,
+        var(--color-felt-weave-dark) 1px,
+        transparent 1px,
+        transparent 4px
       );
-    background-size: 8px 8px, 8px 8px;
-    background-position: 0 0, 0 0;
-    background-repeat: no-repeat;
+    background-size: 8px 8px, 8px 8px, 4px 4px;
+    background-position: 0 0, 0 0, 0 0;
+    background-repeat: repeat;
   }
 
   /* Cosmic theme — night sky with glowy stars and moon (children's room aesthetic, easter egg) */
