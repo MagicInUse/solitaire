@@ -13,6 +13,7 @@
   --color-card-red: #c0392b;
   --color-card-black: #1a1a1a;
   --color-card-border-shadow: rgba(0, 0, 0, 0.30);
+  --color-card-border: rgba(0, 0, 0, 0.30);
 }
 
 /* Button colors */
@@ -31,12 +32,13 @@
   --color-felt-weave-dark: rgba(0, 0, 0, 0.12);
   --color-active-rgb: 200 202 216;      /* #c8cad8 */
   --color-active-text-rgb: 224 224 236; /* #e0e0ec */
-  --color-card-face-bg: #1c1c2e;
-  --color-card-red: #a6c5e0;
-  --color-card-black: #9c528b;
+  --color-card-face-bg: #1e1e1e;
+  --color-card-red: #9ec4ff;
+  --color-card-black: #b78cff;
   --color-btn-primary-base: #c8cad8;
   --color-btn-primary-hover: #d8dae6;
   --color-btn-primary-active: #b8bacc;
+  --color-card-border: rgba(80, 85, 98, 0.94);
 }
 
 @layer base {
@@ -52,9 +54,6 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    /* Prevent elastic/bounce scroll on iOS from exposing the white chrome
-       background behind the app shell. */
-    overscroll-behavior: none;
     font-family: system-ui, sans-serif;
   }
 
@@ -241,12 +240,16 @@
     background-color: var(--color-card-face-bg);
   }
 
+  .card-outline-themed {
+    border-color: var(--color-card-border) !important;
+  }
+
   /* Dark mode: brighten card borders for visibility against dark faces */
   [data-theme="dark"] [class*="card-face-bg"],
   [data-theme="dark"] [class*="card-back-"],
   [data-theme="cosmic"] [class*="card-face-bg"],
   [data-theme="cosmic"] [class*="card-back-"] {
-    border-color: rgb(var(--color-active-rgb) / 0.35) !important;
+    border-color: var(--color-card-border) !important;
   }
 
   /* VeriQuery dark mode override — very dark purple background gap for subtle separation */
@@ -257,7 +260,7 @@
 
   [data-theme="dark"] .card-back-veriquery-inner,
   [data-theme="cosmic"] .card-back-veriquery-inner {
-    border-color: rgba(156, 82, 139, 0.75);
+    border-color: var(--color-card-border);
   }
 
   .card-text-red {
@@ -273,8 +276,9 @@
   [data-theme="dark"] .card-text-black,
   [data-theme="cosmic"] .card-text-red,
   [data-theme="cosmic"] .card-text-black {
-    -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.6);
+    -webkit-text-stroke: 0.75px rgba(0, 0, 0, 0.75);
     paint-order: stroke fill;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   }
 
   /* Dark mode: suit icons get drop-shadow for depth */
@@ -328,10 +332,10 @@
 
 .card-back-veriquery         { background: #1d1e2c; }
 .card-back-veriquery-inner   { background: #e9e9e9; }
-.card-back-veriquery-border  { border-color: rgba(156, 82, 139, 0.75); }
+.card-back-veriquery-border  { border-color: var(--color-card-border); }
 
 [data-theme="dark"] .card-back-veriquery-inner,
-[data-theme="cosmic"] .card-back-veriquery-inner   { background: #030308; }
+[data-theme="cosmic"] .card-back-veriquery-inner   { background: #0f1020; }
 
 .card-back-forest          { background: repeating-linear-gradient(135deg, #0a2e14 0px, #0a2e14 6px, #0c3518 6px, #0c3518 12px); }
 .card-back-forest-inner    { background: #c8e6c9; }

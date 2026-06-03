@@ -53,7 +53,7 @@ export function StockPile({ isRecycling, canRecycle, onClick }: StockPileProps) 
     >
       {stockLength > 0 || isRecycling ? (
         <div
-          className={`relative w-full h-full rounded-[5px] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] overflow-hidden flex items-center justify-center card-back-${back.id}`}
+          className={`relative w-full h-full rounded-[5px] border card-outline-themed shadow-[1px_2px_4px_rgba(0,0,0,0.35)] overflow-hidden flex items-center justify-center card-back-${back.id}`}
         >
           <div className={`absolute inset-1 rounded-xs z-0 pointer-events-none card-back-${back.id}-inner`} />
           <div className={`absolute inset-1 rounded-xs z-2 pointer-events-none border card-back-${back.id}-border`} />

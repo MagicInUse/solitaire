@@ -38,7 +38,7 @@ export function Button({
       className={[
         'rounded-md font-semibold tracking-[0.04em]',
         'transition-colors duration-150 cursor-pointer border-0',
-        'outline-none focus-visible:ring-2 focus-visible:ring-white/40',
+        'outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-black/35',
         'disabled:opacity-40 disabled:cursor-not-allowed',
         SIZES[size],
         VARIANTS[variant],

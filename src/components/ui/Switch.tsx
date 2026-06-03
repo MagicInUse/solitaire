@@ -35,14 +35,12 @@ export function Switch({ checked, onChange, label, disabled, disabledNote }: Swi
       </div>
 
       <button
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
+            aria-label={`${label}: ${checked ? 'on' : 'off'}`}
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={[
           'relative shrink-0 w-10.5 h-6 rounded-full',
-          'outline-none focus-visible:ring-2 focus-visible:ring-white/40',
+          'outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-black/35',
           animationsEnabled ? 'transition-colors duration-200' : 'transition-none',
           disabled
             ? 'opacity-35 cursor-not-allowed'

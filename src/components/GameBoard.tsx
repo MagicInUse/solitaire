@@ -4,11 +4,11 @@ import {
   MeasuringStrategy,
   pointerWithin,
 } from "@dnd-kit/core"
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { LayoutGroup } from "framer-motion"
 import { useGameStore }    from "../store/useGameStore"
 import { useOptionsStore } from "../store/useOptionsStore"
-import { FAN_OFFSET, CANVAS_W_PORTRAIT, CANVAS_W_LANDSCAPE } from '../constants/canvas'
+import { CANVAS_W_PORTRAIT, CANVAS_W_LANDSCAPE } from '../constants/canvas'
 import { useGameScale }    from "../hooks/useGameScale"
 import { TableauColumn }   from "./TableauColumn"
 import { Foundation }      from "./Foundation"
@@ -39,6 +39,8 @@ import { useGameController }     from '../controllers/useGameController'
  * Controller hooks own their respective side-effects.
  */
 export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
+  const [a11yStatus, setA11yStatus] = useState('')
+  const lastAnnouncedMoveCount = useRef<number | null>(null)
   const {
     foundations, tableau,
     newGame, won, isDealing, setDealing, dealId,
@@ -77,9 +79,34 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
     return () => clearTimeout(id)
   }, [dealId, isDealing, setDealing])
 
+  useEffect(() => {
+    if (lastAnnouncedMoveCount.current === null) {
+      lastAnnouncedMoveCount.current = moveCount
+      return
+    }
+
+    if (moveCount === lastAnnouncedMoveCount.current) return
+
+    lastAnnouncedMoveCount.current = moveCount
+    setA11yStatus(
+      scoringMode === 'vegas'
+        ? `Move ${moveCount}. Time ${formatTime(elapsed)}. Profit ${formatVegasScore(vegasProfit)}.`
+        : `Move ${moveCount}. Time ${formatTime(elapsed)}. Score ${standardScore}.`,
+    )
+  }, [elapsed, moveCount, scoringMode, standardScore, vegasProfit])
+
+  useEffect(() => {
+    if (!won) return
+    setA11yStatus(`You won in ${formatTime(elapsed)} with ${moveCount} moves.`)
+  }, [elapsed, moveCount, won])
+
+  useEffect(() => {
+    setA11yStatus('New game started.')
+  }, [dealId])
+
   // Waste sizing — shared between the placeholder div and RecycleAnimation
   const visibleWasteCount = drawMode === 1 ? Math.min(1, wasteLength) : Math.min(3, wasteLength)
-  const wasteContainerW   = visibleWasteCount <= 1 ? 48 : 48 + (visibleWasteCount - 1) * FAN_OFFSET
+  const wastePlaceholderWidthClass = visibleWasteCount <= 1 ? 'w-12' : visibleWasteCount === 2 ? 'w-[72px]' : 'w-[96px]'
 
   const foundationEls = foundations.map((pile, i) => (
     <Foundation
@@ -102,7 +129,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   const spacer           = <div key="spacer" className="flex-1" />
   const stockEl          = <StockPile key="stock" isRecycling={isRecycling} canRecycle={canRecycle} onClick={handleStockClick} />
-  const wastePlaceholder = <div key="waste-placeholder" className="shrink-0 h-16.75" style={{ width: wasteContainerW }} />
+  const wastePlaceholder = <div key="waste-placeholder" className={`shrink-0 h-16.75 ${wastePlaceholderWidthClass}`} />
   const wasteEl          = <WastePile key="waste" scale={scale} isDraggingNow={dragSourceInfo !== null} onDoubleClick={handleDoubleClick} />
 
   const topRowItems =
@@ -118,140 +145,145 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const gridGapPx = layout === 'portrait' ? 6 : 18
 
   return (
-    <LayoutGroup id="board">
-    {/* DndContext is OUTSIDE GameCanvas so all dnd-kit coordinate math happens
-        in screen space, not inside the CSS transform: scale() container. */}
-    <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
-    >
-      <GameCanvas>
-        <div className="w-full min-h-full p-2.25 flex flex-col gap-1.5">
-          {/* Top row: Stock / Waste / gap / Foundations (order depends on deckLocation) */}
-          <div className={`flex ${gridGap} items-start h-16.75`}>
-            {topRowItems}
-          </div>
-
-          {/* HUD: timer · score · moves · action buttons */}
-          <div className="flex items-center h-6.5">
-            <div className="flex items-center gap-2.5 text-white/65 text-[11px] font-mono flex-1 min-w-0">
-              {scoringMode === 'standard' && (
-                <><span title="Time" className="inline-flex items-center gap-1"><Timer size={11} strokeWidth={2} />{formatTime(elapsed)}</span>
-                <span title="Score" className="inline-flex items-center gap-1"><Star size={11} fill="currentColor" strokeWidth={0} />{standardScore}</span></>
-              )}
-              {scoringMode === 'vegas' && (
-                <span title="Vegas profit" className={`inline-flex items-center gap-1 ${vegasProfit >= 0 ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
-                  <Coins size={12} strokeWidth={1.75} className="text-yellow-400" />{formatVegasScore(vegasProfit)}
-                </span>
-              )}
-              <span title="Moves">Moves: {moveCount}</span>
+    <main className="w-full h-full" aria-label="Solitaire board">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {a11yStatus}
+      </div>
+      <LayoutGroup id="board">
+      {/* DndContext is OUTSIDE GameCanvas so all dnd-kit coordinate math happens
+          in screen space, not inside the CSS transform: scale() container. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      >
+        <GameCanvas>
+          <div className="w-full min-h-full p-2.25 flex flex-col gap-1.5">
+            {/* Top row: Stock / Waste / gap / Foundations (order depends on deckLocation) */}
+            <div className={`flex ${gridGap} items-start h-16.75`}>
+              {topRowItems}
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors inline-flex items-center gap-1"
-                onClick={() => {
-                  useAnimationStore.getState().setJustUndid(true)
-                  undo()
-                  requestAnimationFrame(() => { useAnimationStore.getState().setJustUndid(false) })
-                }}
-                disabled={!canUndo}
-                title="Undo"
-              ><Undo2 size={11} strokeWidth={2} /> Undo</button>
-              {hintsEnabled && (
-              <button
-                className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors inline-flex items-center gap-1"
-                onClick={handleHint}
-                disabled={isAIPlaying}
-                title="Show hint"
-              ><Lightbulb size={11} strokeWidth={2} /> Hint</button>
-              )}
-              {showAI4ME && (
-              <button
-                className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors inline-flex items-center gap-1 ${
-                  isAIPlaying
-                    ? 'bg-[#9C528B]/40 hover:bg-[#9C528B]/55 text-[#e8b8de]'
-                    : 'bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80'
-                }`}
-                onClick={() => setIsAIPlaying(v => !v)}
-                disabled={won || isDealing || autoCompleting}
-                title={isAIPlaying ? 'Stop AI4ME' : 'AI4ME: auto-play the game'}
-              ><Bot size={11} strokeWidth={2} /> AI4ME</button>
-              )}
-              {(canAutoComplete || autoCompleting) && (
+
+            {/* HUD: timer · score · moves · action buttons */}
+            <div className="flex items-center h-6.5">
+              <div className="flex items-center gap-2.5 text-white/65 text-[11px] font-mono flex-1 min-w-0">
+                {scoringMode === 'standard' && (
+                  <><span title="Time" className="inline-flex items-center gap-1"><Timer size={11} strokeWidth={2} />{formatTime(elapsed)}</span>
+                  <span title="Score" className="inline-flex items-center gap-1"><Star size={11} fill="currentColor" strokeWidth={0} />{standardScore}</span></>
+                )}
+                {scoringMode === 'vegas' && (
+                  <span title="Vegas profit" className={`inline-flex items-center gap-1 ${vegasProfit >= 0 ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
+                    <Coins size={12} strokeWidth={1.75} className="text-yellow-400" />{formatVegasScore(vegasProfit)}
+                  </span>
+                )}
+                <span title="Moves">Moves: {moveCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
                 <button
-                  className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors inline-flex items-center gap-1 ${
-                    autoCompleting
-                      ? 'bg-emerald-500/40 hover:bg-emerald-500/55 text-emerald-200'
-                      : 'bg-white/10 hover:bg-white/20 text-white/80'
-                  }`}
-                  onClick={() => setAutoCompleting(v => !v)}
+                  className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13]"
+                  onClick={() => {
+                    useAnimationStore.getState().setJustUndid(true)
+                    undo()
+                    requestAnimationFrame(() => { useAnimationStore.getState().setJustUndid(false) })
+                  }}
+                  disabled={!canUndo}
+                  title="Undo"
+                ><Undo2 size={11} strokeWidth={2} /> Undo</button>
+                {hintsEnabled && (
+                <button
+                  className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13]"
+                  onClick={handleHint}
                   disabled={isAIPlaying}
-                  title="Auto-complete"
-                ><Zap size={11} strokeWidth={2} /> Auto</button>
-              )}
+                  title="Show hint"
+                ><Lightbulb size={11} strokeWidth={2} /> Hint</button>
+                )}
+                {showAI4ME && (
+                <button
+                  className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13] ${
+                    isAIPlaying
+                      ? 'bg-[#9C528B]/40 hover:bg-[#9C528B]/55 text-[#e8b8de]'
+                      : 'bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80'
+                  }`}
+                  onClick={() => setIsAIPlaying(v => !v)}
+                  disabled={won || isDealing || autoCompleting}
+                  title={isAIPlaying ? 'Stop AI4ME' : 'AI4ME: auto-play the game'}
+                ><Bot size={11} strokeWidth={2} /> AI4ME</button>
+                )}
+                {(canAutoComplete || autoCompleting) && (
+                  <button
+                    className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13] ${
+                      autoCompleting
+                        ? 'bg-emerald-500/40 hover:bg-emerald-500/55 text-emerald-200'
+                        : 'bg-white/10 hover:bg-white/20 text-white/80'
+                    }`}
+                    onClick={() => setAutoCompleting(v => !v)}
+                    disabled={isAIPlaying}
+                    title="Auto-complete"
+                  ><Zap size={11} strokeWidth={2} /> Auto</button>
+                )}
+              </div>
+            </div>
+
+            <DeadGameModal
+              open={deadGame && !won}
+              onClose={() => setDeadGame(false)}
+              onNewGame={() => newGame()}
+              onOpenSettings={onOpenSettings}
+            />
+
+            {/* Tableau */}
+            <div className={`flex ${gridGap} items-start`}>
+              {tableau.map((pile, i) => (
+                <TableauColumn
+                  key={i}
+                  colIndex={i}
+                  pile={pile}
+                  dragSourceInfo={dragSourceInfo}
+                  scale={scale}
+                  layout={layout}
+                  onDoubleClick={handleDoubleClick}
+                  previewCards={
+                    dragOverInfo?.toType === 'tableau' && dragOverInfo.toIndex === i
+                      ? dragSourceInfo?.cards
+                      : undefined
+                  }
+                  hintSourceCardIndex={
+                    activeHint?.fromType === 'tableau' && activeHint.fromIndex === i
+                      ? activeHint.cardIndex
+                      : undefined
+                  }
+                  hintTargetHighlight={activeHint?.toType === 'tableau' && activeHint.toIndex === i}
+                />
+              ))}
             </div>
           </div>
 
-          <DeadGameModal
-            open={deadGame && !won}
-            onClose={() => setDeadGame(false)}
-            onNewGame={() => newGame()}
-            onOpenSettings={onOpenSettings}
-          />
+          {/* WinCascade must be inside GameCanvas to share the CSS scale transform. */}
+          <WinCascade active={won} foundations={foundations} onNewGame={() => newGame()} onOpenSettings={onOpenSettings} />
 
-          {/* Tableau */}
-          <div className={`flex ${gridGap} items-start`}>
-            {tableau.map((pile, i) => (
-              <TableauColumn
-                key={i}
-                colIndex={i}
-                pile={pile}
-                dragSourceInfo={dragSourceInfo}
-                scale={scale}
-                layout={layout}
-                onDoubleClick={handleDoubleClick}
-                previewCards={
-                  dragOverInfo?.toType === 'tableau' && dragOverInfo.toIndex === i
-                    ? dragSourceInfo?.cards
-                    : undefined
-                }
-                hintSourceCardIndex={
-                  activeHint?.fromType === 'tableau' && activeHint.fromIndex === i
-                    ? activeHint.cardIndex
-                    : undefined
-                }
-                hintTargetHighlight={activeHint?.toType === 'tableau' && activeHint.toIndex === i}
-              />
-            ))}
-          </div>
-        </div>
+          {/* RecycleAnimation overlays the top row while waste cards fly back to stock. */}
+          {isRecycling && (
+            <RecycleAnimation
+              visibleWasteCount={visibleWasteCount}
+              deckLocation={deckLocation as 'left' | 'right'}
+              cardBackId={cardBackId}
+              canvasW={canvasW}
+              gap={gridGapPx}
+              onComplete={handleRecycleComplete}
+            />
+          )}
+        </GameCanvas>
 
-        {/* WinCascade must be inside GameCanvas to share the CSS scale transform. */}
-        <WinCascade active={won} foundations={foundations} onNewGame={() => newGame()} onOpenSettings={onOpenSettings} />
-
-        {/* RecycleAnimation overlays the top row while waste cards fly back to stock. */}
-        {isRecycling && (
-          <RecycleAnimation
-            visibleWasteCount={visibleWasteCount}
-            deckLocation={deckLocation as 'left' | 'right'}
-            cardBackId={cardBackId}
-            canvasW={canvasW}
-            gap={gridGapPx}
-            onComplete={handleRecycleComplete}
-          />
-        )}
-      </GameCanvas>
-
-      {/* DragOverlay is portalled to document.body (screen space). */}
-      <DragOverlay dropAnimation={null}>
-        {dragSourceInfo && <DragStack cards={dragSourceInfo.cards} scale={scale} />}
-      </DragOverlay>
-    </DndContext>
-  </LayoutGroup>
+        {/* DragOverlay is portalled to document.body (screen space). */}
+        <DragOverlay dropAnimation={null}>
+          {dragSourceInfo && <DragStack cards={dragSourceInfo.cards} scale={scale} />}
+        </DragOverlay>
+      </DndContext>
+      </LayoutGroup>
+    </main>
   )
 }
 

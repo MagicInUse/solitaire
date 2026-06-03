@@ -9,7 +9,7 @@
  * triggers a game-state re-render. The modal resets to "New Game" on open.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type KeyboardEvent } from 'react'
 import { Spade, BookOpen, Palette, Settings, Trophy, Lightbulb, X, type LucideIcon } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { NewGamePanel }     from './panels/NewGamePanel'
@@ -37,28 +37,58 @@ interface MenuModalProps {
 
 export function MenuModal({ open, onClose }: MenuModalProps) {
   const [activePanel, setActivePanel] = useState<PanelId>('new-game')
+  const tabRefs = useRef<Partial<Record<PanelId, HTMLButtonElement | null>>>({})
 
   // Reset to New Game tab each time the modal opens
   useEffect(() => {
     if (open) setActivePanel('new-game')
   }, [open])
 
+  function focusTab(panelId: PanelId) {
+    setActivePanel(panelId)
+    tabRefs.current[panelId]?.focus()
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let nextIndex = index
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      nextIndex = (index + 1) % NAV_ITEMS.length
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      nextIndex = (index - 1 + NAV_ITEMS.length) % NAV_ITEMS.length
+    } else if (event.key === 'Home') {
+      nextIndex = 0
+    } else if (event.key === 'End') {
+      nextIndex = NAV_ITEMS.length - 1
+    } else {
+      return
+    }
+
+    event.preventDefault()
+    focusTab(NAV_ITEMS[nextIndex].id)
+  }
+
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={onClose} ariaLabel="Game menu">
       {/* h-[min(540px,...)] = fixed 540 px on large screens; shrinks to fit on landscape phones.
            The fixed height (not min-height) is what eliminates panel-switch jumping. */}
       <div className="flex h-[min(540px,calc(100dvh-24px))]">
         {/* ── Sidebar nav ─────────────────────────────────────────────── */}
-        <nav className="w-29 shrink-0 border-r border-white/8 py-2 flex flex-col">
+        <nav className="w-29 shrink-0 border-r border-white/8 py-2 flex flex-col" aria-label="Settings sections">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActivePanel(item.id)}
+              ref={(element) => { tabRefs.current[item.id] = element }}
+              id={`menu-tab-${item.id}`}
+              aria-current={activePanel === item.id ? 'page' : undefined}
+              aria-controls={`menu-panel-${item.id}`}
+              onClick={() => focusTab(item.id)}
+              onKeyDown={(event) => handleTabKeyDown(event, NAV_ITEMS.findIndex((navItem) => navItem.id === item.id))}
               className={[
                 'w-full text-left px-3 py-2.25',
                 'text-[12px] font-medium leading-snug',
                 'flex items-center gap-2',
-                'cursor-pointer border-0 transition-colors duration-150',
+                'cursor-pointer border-0 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13] rounded-none',
                 activePanel === item.id
                   ? 'bg-white/10 text-white/90'
                   : 'bg-transparent text-white/45 hover:text-white/70 hover:bg-white/5',
@@ -71,7 +101,7 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
           <div className="flex-1" />
           <button
             onClick={onClose}
-            className="w-full text-left px-3 py-2.25 text-[12px] font-medium leading-snug flex items-center gap-2 cursor-pointer border-0 border-t border-white/8 mt-1 pt-2.5 bg-transparent text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors duration-150"
+            className="w-full text-left px-3 py-2.25 text-[12px] font-medium leading-snug flex items-center gap-2 cursor-pointer border-0 border-t border-white/8 mt-1 pt-2.5 bg-transparent text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13]"
           >
             <X size={13} strokeWidth={2} className="shrink-0" />
             Close
@@ -80,7 +110,12 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
 
         {/* ── Panel content ────────────────────────────────────────────── */}
         {/* min-h-0 lets this flex child honour the parent's fixed height and scroll internally. */}
-        <div className="flex-1 min-h-0 p-5 overflow-y-auto">
+        <div
+          className="flex-1 min-h-0 p-5 overflow-y-auto"
+          role="region"
+          id={`menu-panel-${activePanel}`}
+          aria-labelledby={`menu-tab-${activePanel}`}
+        >
           {activePanel === 'new-game'    && <NewGamePanel    onClose={onClose} />}
           {activePanel === 'rules'       && <RulesPanel      />}
           {activePanel === 'visuals'     && <VisualsPanel    />}

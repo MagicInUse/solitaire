@@ -43,7 +43,7 @@ export function CardFace({ card }: CardFaceProps) {
       {!card.faceUp ? (
         <motion.div
           key="down"
-          className={`relative w-full h-full rounded-[5px] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] shrink-0 overflow-hidden flex items-center justify-center card-back-${back.id}`}
+          className={`relative w-full h-full rounded-[5px] border card-outline-themed shadow-[1px_2px_4px_rgba(0,0,0,0.35)] shrink-0 overflow-hidden flex items-center justify-center card-back-${back.id}`}
           exit={animationsEnabled ? { scaleX: 0 } : undefined}
           transition={{ duration: 0.075, ease: 'easeIn' }}
         >
@@ -75,7 +75,7 @@ export function CardFace({ card }: CardFaceProps) {
       ) : (
         <motion.div
           key="up"
-          className={clsx("relative w-full h-full rounded-[5px] border border-black/25 shadow-[1px_2px_4px_rgba(0,0,0,0.35)] shrink-0 overflow-hidden card-face-bg flex items-center justify-center", isRed ? "card-text-red" : "card-text-black")}
+          className={clsx("relative w-full h-full rounded-[5px] border card-outline-themed shadow-[1px_2px_4px_rgba(0,0,0,0.35)] shrink-0 overflow-hidden card-face-bg flex items-center justify-center", isRed ? "card-text-red" : "card-text-black")}
           aria-label={`${rankLabel} of ${card.suit}`}
           initial={animationsEnabled ? { scaleX: 0 } : false}
           animate={{ scaleX: 1 }}

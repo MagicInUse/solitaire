@@ -30,7 +30,7 @@ export function DeadGameModal({ open, onClose, onNewGame, onOpenSettings }: Dead
   }
 
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={onClose} ariaLabel="No winning moves left">
       <div className="px-6 py-7 flex flex-col gap-5">
 
         {/* Header */}
