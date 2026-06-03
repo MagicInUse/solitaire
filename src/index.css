@@ -32,8 +32,8 @@
   --color-active-rgb: 200 202 216;      /* #c8cad8 */
   --color-active-text-rgb: 224 224 236; /* #e0e0ec */
   --color-card-face-bg: #1c1c2e;
-  --color-card-red: #b17dcc;
-  --color-card-black: #7ba3d0;
+  --color-card-red: #a6c5e0;
+  --color-card-black: #9c528b;
   --color-btn-primary-base: #c8cad8;
   --color-btn-primary-hover: #d8dae6;
   --color-btn-primary-active: #b8bacc;
@@ -249,6 +249,17 @@
     border-color: rgb(var(--color-active-rgb) / 0.35) !important;
   }
 
+  /* VeriQuery dark mode override — very dark purple background gap for subtle separation */
+  [data-theme="dark"] .card-back-veriquery,
+  [data-theme="cosmic"] .card-back-veriquery {
+    background: #1a0f1f !important;
+  }
+
+  [data-theme="dark"] .card-back-veriquery-inner,
+  [data-theme="cosmic"] .card-back-veriquery-inner {
+    border-color: rgba(156, 82, 139, 0.75);
+  }
+
   .card-text-red {
     color: var(--color-card-red);
   }
@@ -320,9 +331,7 @@
 .card-back-veriquery-border  { border-color: rgba(156, 82, 139, 0.75); }
 
 [data-theme="dark"] .card-back-veriquery-inner,
-[data-theme="cosmic"] .card-back-veriquery-inner   { background: #2a2742; }
-[data-theme="dark"] .card-back-veriquery-border,
-[data-theme="cosmic"] .card-back-veriquery-border  { border-color: rgba(177, 125, 204, 0.75); }
+[data-theme="cosmic"] .card-back-veriquery-inner   { background: #030308; }
 
 .card-back-forest          { background: repeating-linear-gradient(135deg, #0a2e14 0px, #0a2e14 6px, #0c3518 6px, #0c3518 12px); }
 .card-back-forest-inner    { background: #c8e6c9; }
