@@ -35,6 +35,7 @@ export function CardFace({ card }: CardFaceProps) {
   const back = getCardBack(cardBackId)
 
   const isRed = card.suit === 'hearts' || card.suit === 'diamonds'
+  const isSpade = card.suit === 'spades'
   const rankLabel = RANK_LABELS[card.rank]
   const SuitIcon = SUIT_ICONS[card.suit]
 
@@ -81,12 +82,12 @@ export function CardFace({ card }: CardFaceProps) {
           animate={{ scaleX: 1 }}
           transition={{ duration: 0.075, ease: 'easeOut' }}
         >
-          <span className="absolute text-[11px] font-bold leading-none top-0.75 left-1 font-georgia flex items-center gap-[1px]">
-            {rankLabel}<SuitIcon size={9} fill="currentColor" strokeWidth={0} className="inline-block" />
+          <span className="absolute text-[11px] font-bold leading-none top-0.75 left-1 font-georgia flex items-center gap-px">
+            {rankLabel}<SuitIcon size={9} fill="currentColor" stroke="currentColor" strokeWidth={isSpade ? 1.5 : 0} className="inline-block" />
           </span>
-          <SuitIcon size={22} fill="currentColor" strokeWidth={0} />
-          <span className="absolute text-[11px] font-bold leading-none bottom-0.75 right-1 rotate-180 font-georgia flex items-center gap-[1px]">
-            {rankLabel}<SuitIcon size={9} fill="currentColor" strokeWidth={0} className="inline-block" />
+          <SuitIcon size={22} fill="currentColor" stroke="currentColor" strokeWidth={isSpade ? 1.5 : 0} />
+          <span className="absolute text-[11px] font-bold leading-none bottom-0.75 right-1 rotate-180 font-georgia flex items-center gap-px">
+            {rankLabel}<SuitIcon size={9} fill="currentColor" stroke="currentColor" strokeWidth={isSpade ? 1.5 : 0} className="inline-block" />
           </span>
         </motion.div>
       )}
