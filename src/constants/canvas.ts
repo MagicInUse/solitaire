@@ -77,8 +77,10 @@ export const HUD_H = 26
 
 /** Y coordinate where the tableau columns start (top of first card).
  *  Accounts for: padding + top-row (card) + gap + HUD row + gap. */
-export const TABLEAU_TOP         = PADDING + CARD_H + GAP + HUD_H + GAP   // 114 px
+export const TABLEAU_TOP         = PADDING + CARD_H + GAP + HUD_H + GAP + 14 + GAP   // 134 px, including status row
+/** Phone score and moves live in the bottom bar, freeing the HUD and its gap. */
+export const TABLEAU_TOP_PHONE = TABLEAU_TOP - HUD_H - GAP
 /** Vertical space available for tableau columns (landscape). */
-export const TABLEAU_AVAILABLE_H = CANVAS_H - TABLEAU_TOP - PADDING        // 267 px
+export const TABLEAU_AVAILABLE_H = CANVAS_H - TABLEAU_TOP - PADDING        // 247 px
 /** Vertical space available for tableau columns (portrait). */
-export const TABLEAU_AVAILABLE_H_PORTRAIT = CANVAS_H_PORTRAIT - TABLEAU_TOP - PADDING  // 627 px
+export const TABLEAU_AVAILABLE_H_PORTRAIT = CANVAS_H_PORTRAIT - TABLEAU_TOP - PADDING  // 607 px

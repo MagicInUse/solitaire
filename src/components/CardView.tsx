@@ -10,6 +10,7 @@ import { useGameStore }      from "../store/useGameStore"
 import { useOptionsStore }   from "../store/useOptionsStore"
 import { useAnimationStore } from "../store/useAnimationStore"
 import { useAnimations }     from "../hooks/useAnimations"
+import { cardName } from '../controllers/interactions'
 
 /** Props for {@link CardView}. */
 interface CardViewProps {
@@ -55,6 +56,11 @@ interface CardViewProps {
    * @defaultValue true
    */
   layout?: boolean
+  selected?: boolean
+  ghosted?: boolean
+  offsets?: number[]
+  stackSize?: number
+  isGestureSuppressed?: () => boolean
 }
 
 /**
@@ -67,19 +73,22 @@ interface CardViewProps {
  * While dragging, the original card becomes invisible (opacity 0); the
  * visible clone is rendered by `DragOverlay` via {@link DragStack}.
  */
-export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick, dealDelay = 0, hinted = false, layout = true }: CardViewProps) {
+export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable = true, scale, onDoubleClick, dealDelay = 0, hinted = false, layout = true,
+  selected = false, ghosted = false, offsets, stackSize = 1, isGestureSuppressed }: CardViewProps) {
   const lastTapRef = useRef<number>(0)
   const downRef    = useRef<{ x: number; y: number } | null>(null)
   const animationsEnabled  = useAnimations()
   const interactionMode    = useOptionsStore((s) => s.interactionMode)
+  const selectAndPlaceEnabled = useOptionsStore((s) => s.selectAndPlaceEnabled)
   const isDealing          = useGameStore((s) => s.isDealing)
+  const won = useGameStore((s) => s.won)
   const isRecentlyDropped  = useAnimationStore((s) => s.droppedIds.has(card.id))
   const justUndid          = useAnimationStore((s) => s.justUndid)
 
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
-    disabled: !draggable || !card.faceUp,
-    data: { card, cardIndex, sourceType, sourceIndex },
+    disabled: !draggable || !card.faceUp || isDealing || won,
+    data: { card, cardIndex, sourceType, sourceIndex, offsets },
   })
 
   // dnd-kit reports pointer delta in screen pixels, but this element lives
@@ -93,7 +102,7 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
   // In single-tap mode a plain tap auto-moves the card; we distinguish a tap
   // from a drag by comparing the pointer-up position against the recorded
   // pointer-down position (a real drag moves further than TAP_SLOP).
-  const TAP_SLOP = 6
+  const TAP_SLOP = 5
 
   function autoMove() {
     onDoubleClick?.(card, cardIndex, sourceType, sourceIndex)
@@ -106,14 +115,16 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
   }
 
   function handleClick(e: React.MouseEvent) {
-    if (interactionMode !== 'single-tap' || !onDoubleClick) return
+    if (isGestureSuppressed?.()) { lastTapRef.current = 0; return }
+    if ((interactionMode !== 'single-tap' && !selectAndPlaceEnabled) || !onDoubleClick) return
     if (isTap(e.clientX, e.clientY)) autoMove()
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
     if (!onDoubleClick) return
+    if (isGestureSuppressed?.()) { lastTapRef.current = 0; return }
     const t = e.changedTouches[0]
-    if (interactionMode === 'single-tap') {
+    if (interactionMode === 'single-tap' || selectAndPlaceEnabled) {
       if (t && isTap(t.clientX, t.clientY)) {
         e.preventDefault()
         autoMove()
@@ -121,6 +132,10 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
       return
     }
     // Legacy double-tap detection
+    if (!t || !isTap(t.clientX, t.clientY)) {
+      lastTapRef.current = 0
+      return
+    }
     const now = Date.now()
     if (now - lastTapRef.current < 300) {
       e.preventDefault()
@@ -144,21 +159,25 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
     <motion.div
       ref={setNodeRef}
       {...listeners}
-      {...attributes}
+      data-card-id={card.id}
+      data-draggable={card.faceUp && draggable || undefined}
+      aria-label={card.faceUp ? `${cardName(card)}, ${sourceType === 'tableau' ? `column ${(sourceIndex ?? 0) + 1}` : sourceType}${stackSize > 1 ? `, ${stackSize}-card stack` : ''}` : 'Face-down card'}
       onPointerDownCapture={(e) => { downRef.current = { x: e.clientX, y: e.clientY } }}
-      onClick={onDoubleClick && interactionMode === 'single-tap' ? handleClick : undefined}
-      onDoubleClick={onDoubleClick && interactionMode === 'double-tap' ? () => onDoubleClick(card, cardIndex, sourceType, sourceIndex) : undefined}
+      onClick={onDoubleClick ? handleClick : undefined}
+      onDoubleClick={onDoubleClick && !selectAndPlaceEnabled && interactionMode === 'double-tap' ? () => {
+        if (!isGestureSuppressed?.()) onDoubleClick(card, cardIndex, sourceType, sourceIndex)
+      } : undefined}
       onTouchEnd={onDoubleClick ? handleTouchEnd : undefined}
       layoutId={layoutId}
-      className={hinted ? 'hint-glow-card' : undefined}
+      className={[hinted ? 'hint-glow-card' : '', selected ? 'card-selected' : ''].join(' ')}
       initial={animationsEnabled && isDealing ? { opacity: 0, y: -10 } : false}
-      animate={{ opacity: isDragging ? 0 : 1, y: 0 }}
+      animate={{ opacity: isDragging || ghosted ? 0 : 1, y: 0 }}
       transition={
         justUndid && animationsEnabled
           ? SPRING.undo
           : isDealing
           ? { delay: dealDelay, duration: DURATION.base, ease: EASE.out }
-          : { duration: 0.15, ease: EASE.out }
+          : { duration: animationsEnabled ? 0.15 : 0, ease: EASE.out }
       }
       style={{
         width: CARD_W,
@@ -172,7 +191,7 @@ export function CardView({ card, cardIndex, sourceType, sourceIndex, draggable =
         flexShrink: 0,
       }}
     >
-      <CardFace card={card} />
+      <div className="w-full h-full" aria-hidden="true"><CardFace card={card} /></div>
     </motion.div>
   )
 }

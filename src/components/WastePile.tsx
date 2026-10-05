@@ -12,13 +12,15 @@ interface WastePileProps {
   scale:         number
   isDraggingNow: boolean
   onDoubleClick: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
+  selected?: boolean
+  isGestureSuppressed?: () => boolean
 }
 
 /**
  * Renders the waste fan with full draw-1 / draw-3 entrance animations.
  * Manages its own animation-tracking refs so GameBoard stays free of them.
  */
-export function WastePile({ scale, isDraggingNow, onDoubleClick }: WastePileProps) {
+export function WastePile({ scale, isDraggingNow, onDoubleClick, selected, isGestureSuppressed }: WastePileProps) {
   const waste      = useGameStore((s) => s.waste)
   const drawId     = useGameStore((s) => s.drawId)
   const activeHint = useGameStore((s) => s.activeHint)
@@ -111,6 +113,8 @@ export function WastePile({ scale, isDraggingNow, onDoubleClick }: WastePileProp
                   draggable={isTop}
                   onDoubleClick={isTop ? onDoubleClick : undefined}
                   hinted={isTop && activeHint?.fromType === 'waste'}
+                  selected={isTop && selected}
+                  isGestureSuppressed={isGestureSuppressed}
                 />
               </motion.div>
             </motion.div>

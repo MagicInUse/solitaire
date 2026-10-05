@@ -11,7 +11,17 @@ import {
   MIN_FACEDOWN_OFFSET,
   MIN_FACEUP_OFFSET,
   TABLEAU_AVAILABLE_H,
+  CANVAS_H,
+  CANVAS_H_PORTRAIT,
+  TABLEAU_TOP,
+  TABLEAU_TOP_PHONE,
+  PADDING,
 } from '../constants/canvas'
+
+export function getTableauAvailableHeight(layout: 'portrait' | 'landscape', isPhone = false): number {
+  const canvasHeight = layout === 'portrait' ? CANVAS_H_PORTRAIT : CANVAS_H
+  return canvasHeight - (isPhone ? TABLEAU_TOP_PHONE : TABLEAU_TOP) - PADDING
+}
 
 /**
  * Compute the per-column face-up and face-down card offsets.
@@ -64,6 +74,11 @@ export function computeColumnOffsets(
   if (h1 > tableauAvailableH && fdContrib > 0) {
     const remaining = tableauAvailableH - fuContrib * fuOffset - CARD_H
     fdOffset = Math.max(MIN_FACEDOWN_OFFSET, Math.min(FACEDOWN_OFFSET, remaining / fdContrib))
+  }
+
+  // Extreme legal columns must still fit after reserving the status/toolbar.
+  if (fdContrib > 0 && fdContrib * fdOffset + fuContrib * fuOffset + CARD_H > tableauAvailableH) {
+    fdOffset = Math.max(0, (tableauAvailableH - fuContrib * fuOffset - CARD_H) / fdContrib)
   }
 
   return { fuOffset, fdOffset }

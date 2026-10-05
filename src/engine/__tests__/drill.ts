@@ -128,6 +128,7 @@ export function drillSeed(seed: string): DrillResult {
   let won = false
   let steps = 0
   let plan: PlanAction[] = []
+  const observedCards = new Map<string, number>()
   const stateCounts = new Map<string, number>()
 
   const recyclesProd = () =>
@@ -162,6 +163,7 @@ export function drillSeed(seed: string): DrillResult {
       stock: board.stock, waste: board.waste, foundations: board.foundations, tableau: board.tableau,
       recycleCount, stockRecycles: STOCK_RECYCLES, won, drawMode: DRAW_MODE,
       plan,
+      observedCards,
     })
     const action = decision.action
     plan = decision.plan

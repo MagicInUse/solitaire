@@ -22,7 +22,7 @@ export type AISpeed = 'slow' | 'normal' | 'fast'
 
 /**
  * How a tap/click on a card moves it.
- * - `single-tap` — one tap auto-moves the card (foundation-first). Default.
+ * - `single-tap` — one tap sends an eligible top card to a foundation. Default.
  * - `double-tap` — legacy behaviour: a double-tap/double-click auto-moves.
  */
 export type InteractionMode = 'single-tap' | 'double-tap'
@@ -53,6 +53,9 @@ export interface GameOptions {
   showAI4ME: boolean
   /** How a tap/click on a card moves it (single-tap auto-move vs legacy double-tap). */
   interactionMode: InteractionMode
+  selectAndPlaceEnabled: boolean
+  highlightLegalTargets: boolean
+  highContrastCards: boolean
   /** Visual theme for the UI and felt. */
   colorScheme: ColorScheme
 }
@@ -70,5 +73,8 @@ export const DEFAULT_OPTIONS: GameOptions = {
   aiSpeed: 'normal',
   showAI4ME: false,
   interactionMode: 'single-tap',
+  selectAndPlaceEnabled: false,
+  highlightLegalTargets: false,
+  highContrastCards: false,
   colorScheme: 'standard',
 }

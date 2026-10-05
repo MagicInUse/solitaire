@@ -9,7 +9,8 @@
  * reproduce the live board — the determinism guarantee the harness relies on.
  *
  * This is the reproducibility primitive for *human* games (the move log).
- * AI games reproduce from the seed alone since the AI is deterministic.
+ * Auto Play actions are logged too: bounded worker searches may depend on
+ * device timing, so their faithful reproduction also uses the action log.
  */
 
 import { dealKlondike } from './deck'

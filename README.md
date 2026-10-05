@@ -13,10 +13,12 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Drag & drop** — pointer and touch via dnd-kit; drag entire face-up stacks
 - **Single-tap to auto-move** — a plain tap (or click) sends a card to the correct foundation; this is the default. Prefer the classic feel? Switch to **double-tap** under **Settings → Options → Controls**
 - **Drop previews** — translucent ghost shows exactly where a stack will land
+- **Manual select and place** — optional under **Settings → Options → Controls**, off by default. Tap a visible card/stack, then its destination. Dragging and existing foundation shortcuts remain available; when selection mode is on, taps select/place instead of auto-sending to foundations
+- **Forgiving, not automatic drops** — a 10 CSS-pixel near miss can land on a single legal pile. Ambiguous or distant releases return quietly; no nearest-pile autoplay. Dragged stacks retain their compressed spacing
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
-- **Hints** — 💡 button highlights the best available move; cycles through all valid moves on repeated taps. A bounded multi-ply look-ahead (`filterUsefulHints`) suppresses purely redundant card-shuffling and only surfaces moves that make immediate progress or provably *unlock* progress within a few plies — including foundation back-moves that unbury hidden tableau cards. Highlights both the source and destination of each hint
-- **AI4ME auto-player** — an optional one-tap solver that plays the game for you. A greedy engine takes every strictly-progressive move, and a bounded breadth-first **planner** (`engine/planner.ts`) takes over in tangled mid-game and all-face-up endgame positions to drive the shortest line straight to a full clear. Toggle the button and tune its speed (Slow / Normal / Fast) in **Settings → Assist**; Slow and Normal flash each card before moving so you can follow along
-- **Dead-game detection** — shows a modal the moment the game is no longer winnable. Detection is two-stage: a strict-liveness check confirms whether *any* legal move exists, and a planner-backed `isStuckGame` check then asks whether any **progress** or **win** is still reachable. Once only reversible King/stack shuffles remain — moves that push cards around without ever advancing — the game is declared over ("No Winning Moves Left") even though the board is technically still movable
+- **Hints** — 💡 recommends the first step of the same visible-card plan used by Auto Play. Card moves highlight source and destination; draw/recycle suggestions highlight the stock and explain the action. Repeated taps repeat the recommendation rather than running independent searches
+- **AI4ME auto-player** — an optional human-information bot. A shared Web Worker uses compact card states, best-first search, column symmetry reduction, and a recycle-aware transposition table to plan visible rearrangements, including foundation back-moves. It never reads hidden tableau faces or unseen stock faces, never scouts with Undo, and ends its plan at a reveal or unknown draw before reassessing. Cards already turned over are remembered for later stock passes during the current session; this memory resets on a new deal and is not persisted across reloads. Toggle its button and speed (Slow / Normal / Fast) in **Settings → Assist**
+- **No-progress detection** — the same worker result drives hints, Auto Play, and the **No Progress Left** modal. The modal appears only after exhaustive visible-state search finds no foundation gain, reveal, or new stock information reachable under the actual recycle rules. Reversible shuffles may still be legal; this is not a claim that an unseen deal is unwinnable. Time/node/memory limits return **unknown**, never a dead verdict; Auto Play stops with an explanatory status and manual play remains available
 - **Auto-complete** — cascades remaining cards to foundations when the game is won
 - **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts rendered above the card cascade
 - **Persisted game state** — game survives page reloads and app restarts via `localStorage`
@@ -33,6 +35,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Stock recycles** — unlimited, 3, 2, or 1
 - **Undo limit** — unlimited, 3, 1, or disabled
 - **Controls** — single-tap (default) or double-tap to auto-move a card to its foundation
+- **Optional readability and guidance** — High Contrast Cards in Visuals enlarges corner labels and strengthens outlines without changing your theme. Show Legal Destinations highlights all legal piles while dragging/selecting. Both default off; ordinary dragging highlights only the hovered legal destination
 
 ### Stats & Leaderboard
 - Lifetime stats: games played, won, win %, current streak, best streak, fastest win, best score
@@ -41,6 +44,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 ### Visuals & Options
 - **Theme selector** — choose between Standard (green felt), Dark (moody), or unlock the secret Cosmic theme with stars and a moon ✨ (tap the Dark button 5 times in 2 seconds)
 - **6 card backs** to choose from
+- **Crisp dark cards** — stronger edges and light suit colors without rank strokes or blurred icon shadows; dark menus use solid, readable surfaces rather than backdrop blur
 - **Animations toggle** — disable deal / flip / win cascade for low-power preference
 - **Reduced motion** — every animation also honours the OS `prefers-reduced-motion` setting, so the game stills itself automatically when the system requests it
 - **Deck position** — stock + waste on the left or right
@@ -58,12 +62,14 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Undo spring** — undone cards snap back with a spring (`stiffness: 380, damping: 28`) for a tactile "rubber-band" feel
 - **Foundation pop-in** — a card landing on a foundation springs up from a slightly smaller scale, giving immediate "snap home" feedback the instant it arrives
 - **Hint pulse** — hinted cards glow with a looping platinum-coloured pulse so the suggestion is impossible to miss
+- Routine background move analysis stays quiet; hint guidance, analysis errors, and search-limit notices remain visible without shifting the board.
 - **Consistent cinematography** — shared duration / easing constants (`constants/animations.ts`) keep every motion on the same timing language, and a single `useAnimations()` hook gates all motion on both the in-app toggle and the OS reduced-motion preference
 
 ### Layout
 - **Adaptive canvas** — fixed 462 × 390 (landscape) or 390 × 750 (portrait) logical canvas, CSS-scaled to fit any viewport; scale capped at 2.5× on large screens. The wider landscape canvas reclaims side felt and spreads the columns to an even gap while keeping edge room for future ambient decorations
 - **Portrait & landscape** — layout mode detected reliably on iOS (uses `document.documentElement` dimensions to avoid stale `window.innerWidth` on rotation)
 - **Safe-area aware** — respects notch, Dynamic Island, and home indicator insets
+- **Phone action bar** — Score/profit sits to the left of the buttons and Moves to the right; standard-mode time stays with the score. Undo, Hint, menu, and enabled assistance actions use unscaled 44 × 44 CSS-pixel controls at the bottom, freeing the former HUD row for on-board stacks. Desktop retains its in-board toolbar
 - **PWA** — installable on iOS and Android; works fully offline; service-worker update banner
 
 ---
@@ -72,11 +78,19 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 
 1. Tap the **stock pile** to flip cards onto the waste pile.
 2. **Drag** cards or stacks between tableau columns — alternating colours, descending rank.
-3. **Tap** any card to auto-send it to the correct foundation (or **double-tap** if you switched Controls).
+3. **Tap** an eligible top card to send it to a foundation (or **double-tap** if you switched Controls). With optional **Select and Place** enabled, tap a source and then its destination instead.
 4. Build all four foundation piles from Ace → King to win.
 5. Tap **💡 Hint** if you're stuck, or open the menu for **Undo**.
 
 ---
+
+### Control accessibility
+
+Stock, toolbar, and settings controls use native buttons and
+dialogs retain focus handling. OS reduced motion and the animation setting
+also disable drag lift/return movement. Board keyboard navigation and keyboard
+dragging are not implemented; this is not a claim of WCAG AA conformance.
+There are no keyboard-drag instructions advertising unsupported controls.
 
 ## Tech Stack
 
@@ -120,20 +134,41 @@ pnpm generate-pwa-assets
 
 ---
 
+### Assisted-play architecture
+
+`src/engine/analysis.ts` receives only visible numeric card codes (zero means
+unknown). The worker is given neither the deal seed, move history, nor hidden
+card identities. Placement tables are compiled from the canonical rulebook.
+Search prefers reveals and conservative foundation plays, but does not promise
+optimal play or guaranteed wins.
+
+`useBoardAnalysis` owns one analysis client for all assists. Its 64-entry cache
+also retains valid plan suffixes, avoiding a re-solve after each setup move.
+Board/rule changes cancel CPU work by terminating the active worker; stale
+responses and delayed actions are rejected. Default limits are 250 ms of search,
+30,000 expanded nodes, and 60,000 stored states. There is no artificial recycle
+cap: unlimited passes collapse through state deduplication, while finite passes
+use remaining-recycle dominance. Worker failures/timeouts are shown explicitly.
+
+Live search timing can differ by device. Auto Play uses the normal recorded
+actions, so reproduce a played game with its seed **and action log**, not its
+seed alone. Synchronous compatibility adapters use node/memory limits without
+a wall-clock cutoff for deterministic engine tests.
+
 ## Project Structure
 
 ```
 src/
   types/        # Core domain types (Card, Pile, GameState, GameOptions, GameStats)
   constants/    # Canvas dimensions (landscape + portrait)
-  engine/       # Pure game logic: rules, deck, gameActions, hints, deadGame,
-                #   and the BFS planner (planner.ts) that powers AI4ME + stuck
-                #   detection. solver.ts + __tests__ are a test-only oracle and
-                #   seeded AI simulation harness that cross-examine production
+  engine/       # Pure rules, transitions, visible-card analysis + worker;
+                #   planner.ts is a synchronous compatibility adapter.
+                #   solver.ts + __tests__ provide independent test oracles
+  services/     # Cancellable analysis worker client + bounded plan cache
   utils/        # scoring, hints (re-exports), layout compression, card backs,
-                #   drag tracking, aiPlayer (greedy + planner move selection)
+                #   drag tracking, aiPlayer (synchronous simulation adapter)
   store/        # Zustand stores: game state, player options, lifetime stats
-  controllers/  # useGameController, useDeadGameDetector, useAutoComplete, useHintController
+  controllers/  # Shared useBoardAnalysis and game/assist controllers
   hooks/        # useAIPlayer, useGameScale (viewport → scale + mode), useTimer,
                 #   useAnimations (motion gate: in-app toggle + OS reduced-motion)
   components/
@@ -145,7 +180,7 @@ src/
     GameBoard/  # Top-level game controller and HUD (incl. AI4ME button)
     GameCanvas/ # Full-screen felt world + CSS scale boundary
     WinCascade/     # Win animation — cards cascade to foundations
-    DeadGameModal/ # Modal shown when no winning moves remain
+    DeadGameModal/ # Modal shown only for proven visible no-progress
     menu/          # MenuButton + MenuModal with tabbed panels
       panels/      # NewGame, Rules, Visuals, Options, Assist, Leaderboard
     ui/            # Modal, Button, Switch primitives

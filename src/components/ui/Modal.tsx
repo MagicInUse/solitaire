@@ -97,7 +97,7 @@ export function Modal({ open, onClose, children, title, ariaLabel }: ModalProps)
         >
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={onClose}
           />
 
@@ -105,7 +105,7 @@ export function Modal({ open, onClose, children, title, ariaLabel }: ModalProps)
           <motion.div
             ref={dialogRef}
             tabIndex={-1}
-            className="relative z-10 bg-[#131f13] border border-white/10 rounded-2xl shadow-2xl w-full max-w-115 mx-4 overflow-hidden"
+            className="modal-surface relative z-10 bg-[#131f13] border border-white/10 rounded-2xl shadow-2xl w-full max-w-115 mx-4 overflow-hidden"
             initial={animationsEnabled ? { scale: 0.94, opacity: 0, y: 10 } : false}
             animate={{ scale: 1,    opacity: 1, y: 0 }}
             exit={animationsEnabled ? { scale: 0.97, opacity: 0, y: 4 } : { opacity: 0 }}

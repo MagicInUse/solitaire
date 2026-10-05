@@ -31,6 +31,7 @@ interface CardFaceProps {
  */
 export function CardFace({ card }: CardFaceProps) {
   const cardBackId = useOptionsStore((s) => s.cardBackId)
+  const highContrastCards = useOptionsStore((s) => s.highContrastCards)
   const animationsEnabled = useAnimations()
   const back = getCardBack(cardBackId)
 
@@ -76,7 +77,7 @@ export function CardFace({ card }: CardFaceProps) {
       ) : (
         <motion.div
           key="up"
-          className={clsx("relative w-full h-full rounded-[5px] border card-outline-themed shadow-[1px_2px_4px_rgba(0,0,0,0.35)] shrink-0 overflow-hidden card-face-bg flex items-center justify-center", isRed ? "card-text-red" : "card-text-black")}
+          className={clsx("relative w-full h-full rounded-[5px] border card-outline-themed shadow-[1px_2px_4px_rgba(0,0,0,0.35)] shrink-0 overflow-hidden card-face-bg flex items-center justify-center", highContrastCards && 'card-readable', isRed ? "card-text-red" : "card-text-black")}
           aria-label={`${rankLabel} of ${card.suit}`}
           initial={animationsEnabled ? { scaleX: 0 } : false}
           animate={{ scaleX: 1 }}

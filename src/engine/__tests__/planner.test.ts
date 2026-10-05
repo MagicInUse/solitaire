@@ -1,9 +1,8 @@
 /**
  * Tests for the production endgame solver in engine/planner.ts.
  *
- * `findWinningPlan` performs a bounded DFS over the full game (moves + draws +
- * recycles) and returns a concrete winning line, or null when none is found in
- * budget. These tests pin:
+ * `findWinningPlan` is a synchronous visible-card search adapter. It returns a
+ * concrete winning line, or null when exhausted or inconclusive. These tests pin:
  *  - an already-won board needs an empty plan
  *  - a one-move-from-won board is solved with the final foundation play
  *  - a small all-face-up tableau is driven to a full clear, and every action in

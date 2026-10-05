@@ -12,7 +12,8 @@ import { Switch }  from '../../ui/Switch'
 import { Button }  from '../../ui/Button'
 
 export function OptionsPanel() {
-  const { deckLocation, setDeckLocation, interactionMode, setInteractionMode } = useOptionsStore()
+  const { deckLocation, setDeckLocation, interactionMode, setInteractionMode,
+    selectAndPlaceEnabled, setSelectAndPlaceEnabled } = useOptionsStore()
   const clearStats = useStatsStore((s) => s.clearStats)
   const { canInstall, install } = useInstallPrompt()
   const [confirmClear, setConfirmClear] = useState(false)
@@ -108,18 +109,24 @@ export function OptionsPanel() {
         <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
           Controls
         </h3>
+        <Switch checked={selectAndPlaceEnabled} onChange={setSelectAndPlaceEnabled} label="Select and Place" />
+        <p className="text-white/70 text-[12px] leading-relaxed">
+          Off by default. When on, tap a card or stack, then tap its destination.
+          You choose every move. Tap the source again or empty felt to cancel. Dragging always works.
+        </p>
         <p className="text-white/30 text-[11px] leading-relaxed -mt-1">
-          Choose how tapping a card moves it. You can always drag cards by hand.
+          With Select and Place off, choose your shortcut for sending top cards to foundations.
         </p>
         <div className="flex flex-col gap-2">
           {([
-            { mode: 'single-tap', title: 'Single Tap (default)', desc: 'One tap sends a card to where it fits (foundation first).' },
-            { mode: 'double-tap', title: 'Double Tap',           desc: 'Double-tap or double-click to auto-move a card.' },
+            { mode: 'single-tap', title: 'Single Tap (default)', desc: 'One tap sends an eligible top card to a foundation.' },
+            { mode: 'double-tap', title: 'Double Tap',           desc: 'Double-tap or double-click sends an eligible top card to a foundation.' },
           ] as const).map(({ mode, title, desc }) => {
             const isActive = interactionMode === mode
             return (
               <button
                 key={mode}
+                aria-pressed={isActive}
                 onClick={() => setInteractionMode(mode)}
                 className={[
                   'w-full p-3.5 rounded-xl border text-left',
@@ -137,12 +144,15 @@ export function OptionsPanel() {
             )
           })}
         </div>
+        <p className="text-white/70 text-[12px] leading-relaxed">
+          All card and stack interaction stays on the board. Keyboard board play is not supported.
+        </p>
       </section>
 
       {/* Data management */}
       <section className="flex flex-col gap-3 pt-3 border-t border-white/8">
         <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
-          Data
+          Stats &amp; Leaderboard
         </h3>
 
         {confirmClear ? (
@@ -156,7 +166,7 @@ export function OptionsPanel() {
                 size="sm"
                 onClick={() => { clearStats(); setConfirmClear(false) }}
               >
-                Confirm Delete
+                Confirm Reset
               </Button>
               <Button
                 variant="ghost"
@@ -173,7 +183,7 @@ export function OptionsPanel() {
             size="sm"
             onClick={() => setConfirmClear(true)}
           >
-            Clear All Stats
+            Reset Stats &amp; Leaderboard
           </Button>
         )}
       </section>

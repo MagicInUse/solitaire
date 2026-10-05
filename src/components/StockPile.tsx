@@ -11,9 +11,10 @@ interface StockPileProps {
   isRecycling: boolean
   canRecycle:  boolean
   onClick:     () => void
+  hinted?: boolean
 }
 
-export function StockPile({ isRecycling, canRecycle, onClick }: StockPileProps) {
+export function StockPile({ isRecycling, canRecycle, onClick, hinted = false }: StockPileProps) {
   const stockLength       = useGameStore((s) => s.stock.length)
   const cardBackId        = useOptionsStore((s) => s.cardBackId)
   const animationsEnabled = useAnimations()
@@ -36,8 +37,11 @@ export function StockPile({ isRecycling, canRecycle, onClick }: StockPileProps) 
   }
 
   return (
-    <motion.div
-      className={`w-12 h-16.75 shrink-0 ${interactive ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+    <motion.button
+      type="button"
+      disabled={isRecycling || exhausted}
+      aria-label={stockLength > 0 ? `Draw from stock, ${stockLength} cards remaining` : canRecycle ? 'Recycle stock' : 'No more redeals'}
+      className={`w-12 h-16.75 shrink-0 rounded-[5px] border-0 bg-transparent focus-visible:outline-2 focus-visible:outline-white ${interactive ? 'cursor-pointer' : 'cursor-not-allowed'} ${hinted ? 'ring-2 ring-white/80 rounded-[5px]' : ''}`}
       onClick={handleClick}
       whileTap={interactive && animationsEnabled ? { scale: 0.9 } : undefined}
       animate={shake ? { x: [0, -4, 4, -3, 3, 0] } : { x: 0 }}
@@ -78,6 +82,6 @@ export function StockPile({ isRecycling, canRecycle, onClick }: StockPileProps) 
           &#x2298;
         </div>
       )}
-    </motion.div>
+    </motion.button>
   )
 }

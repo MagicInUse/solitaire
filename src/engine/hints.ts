@@ -1,14 +1,14 @@
 /**
  * @module engine/hints
- * Computes and filters hint moves for the player.
+ * Legal placement enumeration and legacy bounded hint classification.
  *
- * This module is the DISPLAY layer for hints — it decides which moves are
- * worth showing to the player.  It deliberately suppresses "pure shuffle"
- * moves that provide no strategic value.
+ * The classifiers remain for compatibility and independent diagnostic tests.
+ * Live hints, Auto Play, and no-progress detection now use engine/analysis
+ * through the shared worker, rather than per-candidate searches here.
  *
  * IMPORTANT: Do not use filterUsefulHints for dead-game detection.
  * Its display-side filtering can incorrectly classify a board as stuck.
- * Use engine/deadGame.ts → isDeadGame() instead.
+ * Use the explicit shared analysis verdict instead.
  */
 
 import type { Card, Hint, Pile } from '../types/cards'
@@ -98,10 +98,8 @@ export function computeHints({ waste, foundations, tableau }: BoardState): Hint[
 
 // ─── Canonical "useful move" predicate (multi-ply, bounded) ────────────────────
 //
-// THE single production definition of whether a move is worth showing/playing.
-// Both the hint display (filterUsefulHints) and the AI's reachable-progress
-// check (engine/deadGame.hasReachableProgress) derive from this, so the two can
-// never drift apart again.  It is a production twin of the test-only
+// Legacy classification retained for engine/deadGame.hasReachableProgress and
+// diagnostic comparisons. It is a compatibility twin of the test-only
 // engine/solver.redundancyOracle — independently implemented (over computeHints
 // rather than the oracle's own enumeration) so the harness can still cross-check
 // production against an independent second opinion.

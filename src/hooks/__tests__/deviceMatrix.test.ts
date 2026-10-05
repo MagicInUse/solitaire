@@ -11,11 +11,11 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { computeLayout, MAX_SCALE } from '../useGameScale'
-import { computeColumnOffsets } from '../../utils/layout'
+import { computeLayout, computePlayableLayout, MAX_SCALE, PHONE_ACTIONS_H } from '../useGameScale'
+import { computeColumnOffsets, getTableauAvailableHeight } from '../../utils/layout'
 import {
   CARD_W, CARD_H, CANVAS_W_LANDSCAPE, CANVAS_H,
-  TABLEAU_AVAILABLE_H, FACEUP_OFFSET, FACEDOWN_OFFSET,
+  TABLEAU_AVAILABLE_H, TABLEAU_AVAILABLE_H_PORTRAIT, HUD_H, GAP, FACEUP_OFFSET, FACEDOWN_OFFSET,
 } from '../../constants/canvas'
 import type { Card, Pile } from '../../types/cards'
 
@@ -54,6 +54,7 @@ describe('device matrix — landscape is height-bound', () => {
       const unusedWpct = +(((w - usedW) / w) * 100).toFixed(0)
       return { name, layout, scale: +scale.toFixed(2), cardWpx, tableauPx, unusedWpct }
     })
+
     // eslint-disable-next-line no-console
     console.table(rows)
     expect(rows.length).toBe(DEVICES.length)
@@ -87,5 +88,34 @@ describe('device matrix — landscape is height-bound', () => {
     const { fuOffset } = computeColumnOffsets(pile, TABLEAU_AVAILABLE_H)
     expect(naturalH).toBeGreaterThan(TABLEAU_AVAILABLE_H)
     expect(fuOffset).toBeLessThan(FACEUP_OFFSET)
+  })
+})
+
+describe('phone action bar and fully visible long columns', () => {
+  it.each([[320, 568], [390, 844], [667, 375]])('reserves unscaled actions at %i x %i', (w, h) => {
+    const { isPhone, scale, layout } = computePlayableLayout(w, h)
+    expect(isPhone).toBe(true)
+    const canvasH = layout === 'portrait' ? 750 : 390
+    expect(scale * canvasH + PHONE_ACTIONS_H).toBeLessThanOrEqual(h + 0.001)
+  })
+  it('preserves desktop scaling and orientation near the toolbar threshold', () => {
+    expect(computePlayableLayout(1529, 907).scale).toBe(computeLayout(1529, 907).scale)
+    expect(computePlayableLayout(390, 400).layout).toBe('portrait')
+  })
+  it('fits the longest legal run beneath six hidden cards including the status row', () => {
+    const pile = buildLongColumn(6, 13)
+    const { fuOffset, fdOffset } = computeColumnOffsets(pile, TABLEAU_AVAILABLE_H)
+    const height = 6 * fdOffset + 12 * fuOffset + CARD_H
+    expect(height).toBeLessThanOrEqual(TABLEAU_AVAILABLE_H + 0.001)
+    expect(fuOffset).toBeGreaterThanOrEqual(12)
+    expect(fdOffset).toBeGreaterThanOrEqual(0)
+  })
+  it.each(['portrait', 'landscape'] as const)('reclaims the HUD row on %s phones without changing desktop', (layout) => {
+    const desktop = layout === 'portrait' ? TABLEAU_AVAILABLE_H_PORTRAIT : TABLEAU_AVAILABLE_H
+    const mobile = getTableauAvailableHeight(layout, true)
+    expect(getTableauAvailableHeight(layout)).toBe(desktop)
+    expect(mobile).toBe(desktop + HUD_H + GAP)
+    const { fuOffset, fdOffset } = computeColumnOffsets(buildLongColumn(6, 13), mobile)
+    expect(6 * fdOffset + 12 * fuOffset + CARD_H).toBeLessThanOrEqual(mobile + 0.001)
   })
 })

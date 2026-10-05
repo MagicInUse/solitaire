@@ -3,9 +3,9 @@ import { clsx } from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CardView } from './CardView'
 import { CardFace } from './CardFace'
-import { CARD_H, TABLEAU_AVAILABLE_H_PORTRAIT } from '../constants/canvas'
+import { CARD_H } from '../constants/canvas'
 import { DURATION } from '../constants/animations'
-import { computeColumnOffsets } from '../utils/layout'
+import { computeColumnOffsets, getTableauAvailableHeight } from '../utils/layout'
 import { useAnimations } from '../hooks/useAnimations'
 import type { GameLayoutMode } from '../hooks/useGameScale'
 import type { Card, Pile } from '../types/cards'
@@ -35,6 +35,7 @@ interface TableauColumnProps {
   scale: number
   /** Current layout mode — drives which tableau height budget to use. */
   layout: GameLayoutMode
+  isPhone?: boolean
   /** Called when the user double-clicks a face-up top card. */
   onDoubleClick?: (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
   /**
@@ -52,6 +53,10 @@ interface TableauColumnProps {
    * drop target of the active hint.
    */
   hintTargetHighlight?: boolean
+  selectedCardIndex?: number
+  legalTarget?: boolean
+  onDestination?: () => void
+  isGestureSuppressed?: () => boolean
 }
 
 /**
@@ -64,8 +69,9 @@ interface TableauColumnProps {
  * - Appends an optional translucent preview stack while a valid card is
  *   hovered above the column.
  */
-export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, onDoubleClick, previewCards, hintSourceCardIndex, hintTargetHighlight }: TableauColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
+export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, isPhone = false, onDoubleClick, previewCards, hintSourceCardIndex, hintTargetHighlight,
+  selectedCardIndex, legalTarget = false, onDestination, isGestureSuppressed }: TableauColumnProps) {
+  const { setNodeRef } = useDroppable({
     id: `tableau-${colIndex}`,
     data: { toType: 'tableau', toIndex: colIndex },
   })
@@ -73,7 +79,7 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
   const animationsEnabled = useAnimations()
 
   // Per-column offsets — compressed automatically when tall stacks would overflow
-  const tableauAvailableH = layout === 'portrait' ? TABLEAU_AVAILABLE_H_PORTRAIT : undefined
+  const tableauAvailableH = getTableauAvailableHeight(layout, isPhone)
   const { fuOffset, fdOffset } = computeColumnOffsets(pile, tableauAvailableH)
 
   // Dynamic height based on actual face-up/down card counts
@@ -85,17 +91,16 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
           0
         ) + CARD_H
 
-  // Base top for preview stack — sum of ALL pile card offsets (placed after last real card)
-  const previewBaseTop = pile.reduce((sum, c) => sum + (c.faceUp ? fuOffset : fdOffset), 0)
-  const totalHeight = previewCards?.length
-    ? previewBaseTop + (previewCards.length - 1) * fuOffset + CARD_H
-    : colHeight
+  const previewOffsets = computeColumnOffsets([...pile, ...(previewCards ?? [])], tableauAvailableH)
+  const previewBaseTop = pile.reduce((sum, c) => sum + (c.faceUp ? previewOffsets.fuOffset : previewOffsets.fdOffset), 0)
 
   return (
     <div
       ref={setNodeRef}
-      className={clsx("relative w-12 shrink-0 rounded-[5px] [transition:background_0.15s]", isOver && "bg-white/12", hintTargetHighlight && "hint-glow-col")}
-      style={{ height: totalHeight }}
+      data-pile={`tableau-${colIndex}`}
+      onClick={onDestination}
+      className={clsx("relative w-12 shrink-0 rounded-[5px]", legalTarget && 'legal-drop-target', hintTargetHighlight && "hint-glow-col")}
+      style={{ height: colHeight }}
     >
       {pile.length === 0 ? (
         <div className="w-12 h-16.75 rounded-[5px] border-2 border-dashed border-white/30" />
@@ -114,10 +119,10 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
 
           return (
             <div key={card.id} className="absolute left-0" style={{ top, zIndex: i }}>
-              {isGhosted ? (
-                <div className="w-12 h-16.75 rounded-[5px] border-2 border-dashed border-white/45 bg-white/6" />
-              ) : (
-                <CardView
+              {isGhosted && (
+                <div className="absolute inset-0 w-12 h-16.75 rounded-[5px] border-2 border-dashed border-white/70 bg-white/6 pointer-events-none" />
+              )}
+              <CardView
                   card={card}
                   cardIndex={i}
                   sourceType="tableau"
@@ -127,8 +132,12 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
                   onDoubleClick={onDoubleClick}
                   dealDelay={(colIndex + i) * 0.03}
                   hinted={hintSourceCardIndex !== undefined && i >= hintSourceCardIndex && card.faceUp}
-                />
-              )}
+                  selected={selectedCardIndex !== undefined && i >= selectedCardIndex}
+                  ghosted={isGhosted}
+                  stackSize={pile.length - i}
+                  offsets={pile.slice(i).map((_, j) => j * fuOffset)}
+                  isGestureSuppressed={isGestureSuppressed}
+              />
             </div>
           )
         })
@@ -138,7 +147,7 @@ export function TableauColumn({ colIndex, pile, dragSourceInfo, scale, layout, o
           <motion.div
             key={`preview-${card.id}`}
             className="w-12 h-16.75 absolute left-0 pointer-events-none rounded-[5px] overflow-hidden"
-            style={{ top: previewBaseTop + j * fuOffset, zIndex: pile.length + j }}
+            style={{ top: previewBaseTop + j * previewOffsets.fuOffset, zIndex: pile.length + j }}
             initial={animationsEnabled ? { opacity: 0 } : false}
             animate={{ opacity: 0.55 }}
             exit={{ opacity: 0 }}

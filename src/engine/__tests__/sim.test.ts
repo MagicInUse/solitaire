@@ -126,6 +126,7 @@ function driveSeed(seed: string): SeedResult {
   let won = false
   let steps = 0
   let plan: PlanAction[] = []
+  const observedCards = new Map<string, number>()
   let terminal: SeedResult['terminal'] = 'idle'
   const findings: Finding[] = []
   const traceParts: string[] = []
@@ -204,6 +205,7 @@ function driveSeed(seed: string): SeedResult {
       won,
       drawMode: DRAW_MODE,
       plan,
+      observedCards,
     })
     const action = decision.action
     plan = decision.plan

@@ -11,12 +11,12 @@
 
 import {
   CANVAS_W_LANDSCAPE, CANVAS_H, CANVAS_W_PORTRAIT, CANVAS_H_PORTRAIT,
-  CARD_W, TABLEAU_AVAILABLE_H, TABLEAU_AVAILABLE_H_PORTRAIT,
+  CARD_W,
   CARD_H, FACEUP_OFFSET, FACEDOWN_OFFSET,
 } from '../constants/canvas'
 import { useGameScale } from '../hooks/useGameScale'
 import { useGameStore } from '../store/useGameStore'
-import { computeColumnOffsets } from '../utils/layout'
+import { computeColumnOffsets, getTableauAvailableHeight } from '../utils/layout'
 
 /** True when the page URL requests the debug overlay (`?debug=1`). */
 export function isDebugEnabled(): boolean {
@@ -35,13 +35,13 @@ function readInset(name: string): string {
 }
 
 export function DebugOverlay() {
-  const { scale, layout } = useGameScale()
+  const { scale, layout, isPhone } = useGameScale()
   const tableau = useGameStore((s) => s.tableau)
 
   const isPortrait = layout === 'portrait'
   const canvasW = isPortrait ? CANVAS_W_PORTRAIT : CANVAS_W_LANDSCAPE
   const canvasH = isPortrait ? CANVAS_H_PORTRAIT : CANVAS_H
-  const availH  = isPortrait ? TABLEAU_AVAILABLE_H_PORTRAIT : TABLEAU_AVAILABLE_H
+  const availH = getTableauAvailableHeight(layout, isPhone)
 
   const vw = window.innerWidth
   const vh = window.innerHeight

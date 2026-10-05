@@ -26,19 +26,19 @@
 /* Dark & Cosmic themes — space/atmospheric (raisin black) with CSS variable overrides */
 [data-theme="dark"],
 [data-theme="cosmic"] {
-  --color-letterbox-bg: #0a0a0f;
-  --color-felt-bg: #030308;
+  --color-letterbox-bg: #080b12;
+  --color-felt-bg: #0b1019;
   --color-felt-weave-light: rgba(255, 255, 255, 0.04);
   --color-felt-weave-dark: rgba(0, 0, 0, 0.12);
   --color-active-rgb: 200 202 216;      /* #c8cad8 */
   --color-active-text-rgb: 224 224 236; /* #e0e0ec */
-  --color-card-face-bg: #1e1e1e;
-  --color-card-red: #9ec4ff;
-  --color-card-black: #b78cff;
+  --color-card-face-bg: #222832;
+  --color-card-red: #bdd6ff;
+  --color-card-black: #dcc6ff;
   --color-btn-primary-base: #c8cad8;
   --color-btn-primary-hover: #d8dae6;
   --color-btn-primary-active: #b8bacc;
-  --color-card-border: rgba(80, 85, 98, 0.94);
+  --color-card-border: #8e99ad;
 }
 
 @layer base {
@@ -128,35 +128,9 @@
     background-size: 8px 8px, 8px 8px, 4px 4px;
   }
 
-  /* Dark theme — moody night with subtle felt weave texture */
+  /* Quiet felt keeps overlapping card edges distinct. */
   [data-theme="dark"] .game-canvas-felt {
-    background-image:
-      /* Diagonal weave (light) */
-      repeating-linear-gradient(
-        45deg,
-        var(--color-felt-weave-light) 0px,
-        var(--color-felt-weave-light) 1px,
-        transparent 1px,
-        transparent 8px
-      ),
-      repeating-linear-gradient(
-        -45deg,
-        var(--color-felt-weave-light) 0px,
-        var(--color-felt-weave-light) 1px,
-        transparent 1px,
-        transparent 8px
-      ),
-      /* Horizontal weave (dark) for depth */
-      repeating-linear-gradient(
-        0deg,
-        var(--color-felt-weave-dark) 0px,
-        var(--color-felt-weave-dark) 1px,
-        transparent 1px,
-        transparent 4px
-      );
-    background-size: 8px 8px, 8px 8px, 4px 4px;
-    background-position: 0 0, 0 0, 0 0;
-    background-repeat: repeat;
+    background-image: none;
   }
 
   /* Cosmic theme — night sky with glowy stars and moon (children's room aesthetic, easter egg) */
@@ -271,20 +245,23 @@
     color: var(--color-card-black);
   }
 
-  /* Dark mode: enhance card text visibility with outline/shadow */
+  /* Small rank labels stay sharp without a stroke or blurred shadow. */
   [data-theme="dark"] .card-text-red,
   [data-theme="dark"] .card-text-black,
   [data-theme="cosmic"] .card-text-red,
   [data-theme="cosmic"] .card-text-black {
-    -webkit-text-stroke: 0.75px rgba(0, 0, 0, 0.75);
-    paint-order: stroke fill;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+    -webkit-text-stroke: 0;
+    text-shadow: none;
   }
 
-  /* Dark mode: suit icons get drop-shadow for depth */
-  [data-theme="dark"] svg[stroke-width="0"],
-  [data-theme="cosmic"] svg[stroke-width="0"] {
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+  [data-theme="dark"] .card-face-bg svg,
+  [data-theme="cosmic"] .card-face-bg svg {
+    filter: none;
+  }
+
+  [data-theme="dark"] .card-outline-themed,
+  [data-theme="cosmic"] .card-outline-themed {
+    box-shadow: none;
   }
 
   /* Active/accent color utilities with opacity support */
@@ -359,6 +336,84 @@
 
 /* Font stack for card rank/suit labels */
 .font-georgia { font-family: Georgia, serif; }
+
+.card-selected {
+  outline: 3px solid #101820;
+  outline-offset: -3px;
+  box-shadow: 0 0 0 2px #ffe36e;
+}
+[data-returning="true"] { visibility: hidden; }
+.legal-drop-target {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px #101820;
+}
+.card-readable {
+  --color-card-face-bg: #fff;
+  --color-card-red: #a01818;
+  --color-card-black: #111;
+  --color-card-border: #111;
+}
+.card-readable .font-georgia { font-size: 13px; }
+.phone-actions {
+  position: fixed;
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: env(safe-area-inset-left, 0px);
+  right: env(safe-area-inset-right, 0px);
+  height: 64px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: #131f13;
+}
+.phone-actions button { min-height: 44px; min-width: 44px; padding: 6px 8px; font-size: 12px; }
+.phone-actions .game-action { width: 44px; padding: 0; }
+.game-action-buttons { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.phone-stat {
+  min-width: 0;
+  text-align: center;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 12px;
+}
+.phone-stat-label { display: block; font-size: 10px; color: #c3ccdc; }
+.phone-stat-value { display: block; font-size: 11px; overflow-wrap: anywhere; }
+.phone-stat-time { display: block; font-size: 10px; color: #c3ccdc; }
+.game-action {
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 3px;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #ffffff1a;
+  color: #fff;
+  cursor: pointer;
+}
+.game-action:hover { background: #ffffff33; }
+.game-action[aria-pressed="true"] { background: #495c4a; }
+.game-action:disabled { opacity: 0.35; cursor: default; }
+.game-action:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+[data-theme="dark"] .modal-backdrop,
+[data-theme="cosmic"] .modal-backdrop { backdrop-filter: none; }
+[data-theme="dark"] .modal-surface,
+[data-theme="cosmic"] .modal-surface {
+  background: #151c28;
+  border-color: #6f7b91;
+  box-shadow: 0 8px 20px #0006;
+}
+[data-theme="dark"] .phone-actions,
+[data-theme="cosmic"] .phone-actions { background: #151c28; }
+[data-theme="dark"] [role="dialog"] :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/50, .text-white\/60),
+[data-theme="cosmic"] [role="dialog"] :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/50, .text-white\/60) {
+  color: #c3ccdc;
+}
 
 /* Hint highlight glow — pulsing platinum halo overlaid on hinted cards / columns */
 @keyframes hint-pulse {

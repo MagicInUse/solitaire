@@ -1,49 +1,34 @@
-/**
- * @module controllers/useHintController
- * Manages hint cycling for the "Hint" button in the game HUD.
- *
- * Tracks which hint in the useful-hints list was last shown so that
- * successive button presses cycle through all available moves before wrapping.
- * Resets automatically when the store clears `activeHint` (which happens on
- * every game action) and on each new game.
- */
+import { useState } from 'react'
+import { useGameStore } from '../store/useGameStore'
+import type { BoardAnalysis } from './useBoardAnalysis'
 
-import { useEffect, useState } from 'react'
-import { useGameStore }           from '../store/useGameStore'
-import { computeHints, filterUsefulHints } from '../engine/hints'
-
-export interface UseHintControllerReturn {
-  handleHint: () => void
-}
-
-export function useHintController(): UseHintControllerReturn {
-  const waste       = useGameStore((s) => s.waste)
-  const foundations = useGameStore((s) => s.foundations)
-  const tableau     = useGameStore((s) => s.tableau)
-  const activeHint  = useGameStore((s) => s.activeHint)
-  const setActiveHint = useGameStore((s) => s.setActiveHint)
-  const dealId      = useGameStore((s) => s.dealId)
-
-  const [hintCycleIdx, setHintCycleIdx] = useState(0)
-
-  // Reset cycle when the store clears activeHint (after any game action)
-  useEffect(() => {
-    if (!activeHint) setHintCycleIdx(0)
-  }, [activeHint])
-
-  // Reset on new game
-  useEffect(() => { setHintCycleIdx(0) }, [dealId])
-
+/** Hints and Auto Play recommend the first step of the same visible-card plan. */
+export function useHintController(analysis: BoardAnalysis) {
+  const activeHint = useGameStore(s => s.activeHint)
+  const [stockHintKey, setStockHintKey] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ key?: string; text: string } | null>(null)
+  const step = analysis.result && 'plan' in analysis.result ? analysis.result.plan[0] : undefined
   function handleHint() {
-    const useful = filterUsefulHints(
-      computeHints({ waste, foundations, tableau }),
-      tableau, foundations, waste,
-    )
-    if (useful.length === 0) { setActiveHint(null); setHintCycleIdx(0); return }
-    const idx = hintCycleIdx % useful.length
-    setActiveHint(useful[idx])
-    setHintCycleIdx(idx + 1)
+    if (analysis.status !== 'ready') return
+    if (step?.kind === 'move') {
+      useGameStore.getState().setActiveHint(step.move)
+      setStockHintKey(null)
+      setMessage({ key: analysis.key, text: 'Follow the highlighted move.' })
+    } else if (step) {
+      useGameStore.getState().setActiveHint(null)
+      setStockHintKey(analysis.key ?? null)
+      setMessage({ key: analysis.key, text: step.kind === 'draw' ? 'Draw from the stock.' : 'Recycle the waste.' })
+    } else {
+      useGameStore.getState().setActiveHint(null)
+      setStockHintKey(null)
+      setMessage({ key: analysis.key, text: analysis.result?.status === 'unknown'
+        ? 'No continuation found within the search limit. You can keep playing.'
+        : 'No further visible progress found.' })
+    }
   }
-
-  return { handleHint }
+  return {
+    handleHint,
+    stockHinted: analysis.status === 'ready' && stockHintKey === analysis.key && !activeHint,
+    hintMessage: message && message.key === analysis.key ? message.text : '',
+  }
 }

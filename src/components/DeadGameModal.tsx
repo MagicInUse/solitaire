@@ -1,7 +1,6 @@
 /**
  * @module DeadGameModal
- * Shown when the game reaches an unwinnable state — no moves remain and
- * recycling the waste pile cannot change the board.
+ * Shown only after exhaustive visible-card analysis finds no further progress.
  *
  * Reuses the generic {@link Modal} base component so it inherits the
  * standard backdrop, portal, and entrance/exit animations.
@@ -30,17 +29,18 @@ export function DeadGameModal({ open, onClose, onNewGame, onOpenSettings }: Dead
   }
 
   return (
-    <Modal open={open} onClose={onClose} ariaLabel="No winning moves left">
+    <Modal open={open} onClose={onClose} ariaLabel="No progress left">
       <div className="px-6 py-7 flex flex-col gap-5">
 
         {/* Header */}
         <div className="text-center">
           <div className="leading-none mb-2 flex justify-center"><BrokenCardIcon size={36} /></div>
           <h2 className="text-white/90 text-[18px] font-bold tracking-wide">
-            No Winning Moves Left
+            No Progress Left
           </h2>
           <p className="text-white/45 text-[12px] mt-1.5 leading-relaxed">
-            This game can&apos;t be completed. Better luck next time!
+            No visible sequence can advance the foundations or reveal another card.
+            You can keep rearranging cards or start a new game.
           </p>
         </div>
 
@@ -48,6 +48,9 @@ export function DeadGameModal({ open, onClose, onNewGame, onOpenSettings }: Dead
         <div className="flex flex-col gap-2.5">
           <Button variant="primary" className="w-full" onClick={handleNewGame}>
             New Game
+          </Button>
+          <Button variant="ghost" size="sm" className="w-full" onClick={onClose}>
+            Keep Playing
           </Button>
           {onOpenSettings && (
             <Button variant="ghost" size="sm" className="w-full" onClick={handleSettings}>
