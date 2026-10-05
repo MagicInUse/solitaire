@@ -1,209 +1,238 @@
-/**
- * @module useGameController
- * Owns all dnd-kit sensor setup, drag/drop event handlers, double-click
- * auto-move, stock-click logic, and the `isRecycling` animation state.
- *
- * Extracted from GameBoard so that component can focus purely on layout and
- * rendering.
- */
-
 import {
-  PointerSensor, TouchSensor, useSensor, useSensors,
-  type DragEndEvent, type DragOverEvent, type DragStartEvent,
-} from "@dnd-kit/core"
-import { useRef, useState } from "react"
-import type { Card } from "../types/cards"
-import { useGameStore }      from "../store/useGameStore"
-import { useOptionsStore }   from "../store/useOptionsStore"
-import { useAnimations }     from "../hooks/useAnimations"
-import { canMoveStack }      from '../engine/rules'
-import { useSounds }         from '../hooks/useSounds'
+  PointerSensor, useSensor, useSensors,
+  type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent,
+} from '@dnd-kit/core'
+import { useEffect, useRef, useState } from 'react'
+import type { Card } from '../types/cards'
+import { useGameStore } from '../store/useGameStore'
+import { useOptionsStore } from '../store/useOptionsStore'
+import { useAnimations } from '../hooks/useAnimations'
+import { useSounds } from '../hooks/useSounds'
 import { useAnimationStore } from '../store/useAnimationStore'
-import type { DragSourceInfo } from "../components/TableauColumn"
+import {
+  cardName, chooseDropTarget, destinationName, isLegalDestination, readDestination, resolveSource,
+  type CardSource, type Destination, type SourceType,
+} from './interactions'
 
-export interface GameControllerReturn {
-  sensors: ReturnType<typeof useSensors>
-  dragSourceInfo: (DragSourceInfo & { cards: Card[] }) | null
-  dragOverInfo:   { toType: "tableau" | "foundation"; toIndex: number } | null
-  isRecycling:    boolean
-  canRecycle:     boolean
-  handleDragStart:      (event: DragStartEvent) => void
-  handleDragOver:       (event: DragOverEvent)  => void
-  handleDragEnd:        (event: DragEndEvent)   => void
-  handleDoubleClick:    (card: Card, cardIndex: number, sourceType: "waste" | "tableau" | "foundation", sourceIndex?: number) => void
-  handleStockClick:     () => void
-  handleRecycleComplete: () => void
-}
-
-export function useGameController(): GameControllerReturn {
-  const { tableau, foundations, waste,
-          moveCards, flipTableauTop, drawFromStock, resetStock } = useGameStore()
-  const recycleCount  = useGameStore((s) => s.recycleCount)
-
-  const { drawMode, stockRecycles } = useOptionsStore()
+export function useGameController(settingsOpen = false) {
+  const { recycleCount, stock, waste } = useGameStore()
+  const { drawMode, stockRecycles, selectAndPlaceEnabled } = useOptionsStore()
   const animationsEnabled = useAnimations()
   const { playSfx } = useSounds()
+  const [dragSourceInfo, setDragSourceInfo] = useState<CardSource | null>(null)
+  const [dragOverInfo, setDragOverInfo] = useState<Destination | null>(null)
+  const [selection, setSelection] = useState<CardSource | null>(null)
+  const [status, setStatus] = useState('')
+  const [isRecycling, setIsRecycling] = useState(false)
+  const dragRef = useRef<CardSource | null>(null)
+  const selectionRef = useRef<CardSource | null>(null)
+  const suppressUntil = useRef(0)
+  const recyclingRef = useRef(false)
+  const canRecycle = waste.length > 0 && (stockRecycles === 'unlimited' || recycleCount < stockRecycles)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
-  const [dragSourceInfo, setDragSourceInfo] = useState<(DragSourceInfo & { cards: Card[] }) | null>(null)
-  const [dragOverInfo,   setDragOverInfo]   = useState<{ toType: "tableau" | "foundation"; toIndex: number } | null>(null)
-  const [isRecycling,    setIsRecycling]    = useState(false)
+  function clearSelection() {
+    selectionRef.current = null
+    setSelection(null)
+  }
 
-  // Ref mirrors dragSourceInfo for stale-closure-free access in handleDragOver
-  const dragSourceInfoRef = useRef<(DragSourceInfo & { cards: Card[] }) | null>(null)
+  useEffect(() => {
+    if (!settingsOpen) return
+    const frame = requestAnimationFrame(() => {
+      if (dragRef.current) suppressUntil.current = Date.now() + 350
+      selectionRef.current = null
+      dragRef.current = null
+      setSelection(null)
+      setDragSourceInfo(null)
+      setDragOverInfo(null)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [settingsOpen])
 
-  const canRecycle = stockRecycles === 'unlimited' || recycleCount < (stockRecycles as number)
+  function cancelInteraction() {
+    dragRef.current = null
+    setDragSourceInfo(null)
+    setDragOverInfo(null)
+    clearSelection()
+    suppressUntil.current = Date.now() + 350
+    setStatus('Move cancelled.')
+  }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
-    useSensor(TouchSensor,   { activationConstraint: { delay: 100, tolerance: 5 } }),
-  )
+  useEffect(() => {
+    const clear = () => {
+      if (dragRef.current) suppressUntil.current = Date.now() + 350
+      dragRef.current = null
+      selectionRef.current = null
+      setDragSourceInfo(null)
+      setDragOverInfo(null)
+      setSelection(null)
+    }
+    const unsubscribeGame = useGameStore.subscribe((next, prev) => {
+      if (next.tableau !== prev.tableau || next.waste !== prev.waste ||
+          next.foundations !== prev.foundations || next.dealId !== prev.dealId) clear()
+      if (next.dealId !== prev.dealId) {
+        recyclingRef.current = false
+        setIsRecycling(false)
+        setStatus('')
+      }
+    })
+    const unsubscribeOptions = useOptionsStore.subscribe(clear)
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && (selectionRef.current || dragRef.current)) {
+        clear()
+        suppressUntil.current = Date.now() + 350
+        setStatus('Move cancelled.')
+      }
+    }
+    window.addEventListener('keydown', escape)
+    return () => {
+      unsubscribeGame()
+      unsubscribeOptions()
+      window.removeEventListener('keydown', escape)
+    }
+  }, [])
+
+  function commit(source: CardSource, dest: Destination): boolean {
+    const board = useGameStore.getState()
+    if (settingsOpen || board.isDealing || board.won || recyclingRef.current || !isLegalDestination(board, source, dest)) {
+      setStatus('Card not moved.')
+      return false
+    }
+    board.moveCards({
+      fromType: source.sourceType, fromIndex: source.sourceIndex, cardIndex: source.cardIndex,
+      ...dest,
+    })
+    playSfx('CARD_PLACE')
+    const ids = source.cards.map(c => c.id)
+    useAnimationStore.getState().markDropped(ids)
+    requestAnimationFrame(() => useAnimationStore.getState().clearDropped(ids))
+    if (source.sourceType === 'tableau' && source.sourceIndex !== undefined) board.flipTableauTop(source.sourceIndex)
+    const exposed = source.sourceType === 'tableau' && source.sourceIndex !== undefined
+      ? useGameStore.getState().tableau[source.sourceIndex].at(-1) : undefined
+    setStatus(`${cardName(source.cards[0])}${source.cards.length > 1 ? ` and ${source.cards.length - 1} other ${source.cards.length === 2 ? 'card' : 'cards'}` : ''} moved to ${destinationName(dest)}.${exposed ? ` ${cardName(exposed)} is now exposed.` : ''}`)
+    clearSelection()
+    return true
+  }
+
+  function selectSource(card: Card, cardIndex: number, sourceType: SourceType, sourceIndex?: number) {
+    if (Date.now() < suppressUntil.current) return
+    const board = useGameStore.getState()
+    if (settingsOpen || board.isDealing || board.won || recyclingRef.current) return
+    const source = resolveSource(board, sourceType, sourceIndex, cardIndex)
+    if (!source || source.cards[0].id !== card.id) return
+    if (selectionRef.current?.cards[0].id === card.id) {
+      clearSelection()
+      setStatus('Selection cancelled.')
+      return
+    }
+    selectionRef.current = source
+    setSelection(source)
+    setStatus(`${cardName(card)}${source.cards.length > 1 ? `, ${source.cards.length}-card stack` : ''} selected. Choose a destination.`)
+  }
+
+  function placeSelection(dest: Destination) {
+    const source = selectionRef.current
+    if (!source || Date.now() < suppressUntil.current) return false
+    if (source.sourceType === dest.toType && source.sourceIndex === dest.toIndex) {
+      clearSelection()
+      setStatus('Selection cancelled.')
+      return false
+    }
+    return commit(source, dest)
+  }
+
+  const collisionDetection: CollisionDetection = ({ pointerCoordinates, droppableContainers, droppableRects }) => {
+    const source = dragRef.current
+    if (!source || !pointerCoordinates) return []
+    const hit = document.elementFromPoint(pointerCoordinates.x, pointerCoordinates.y)
+    if (hit?.closest('button, [data-drop-block]')) return []
+    const board = useGameStore.getState()
+    const targets = droppableContainers.flatMap(container => {
+      const rect = droppableRects.get(container.id)
+      const dest = readDestination(container.data.current)
+      return rect && dest ? [{
+        id: String(container.id), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+        legal: isLegalDestination(board, source, dest),
+      }] : []
+    })
+    const id = chooseDropTarget(pointerCoordinates, targets)
+    return id ? [{ id }] : []
+  }
 
   function handleDragStart(event: DragStartEvent) {
-    const data = event.active.data.current as {
-      card: Card
-      cardIndex: number
-      sourceType: "waste" | "tableau" | "foundation"
-      sourceIndex?: number
-    }
-
-    let cards: Card[]
-    if (data.sourceType === "tableau" && data.sourceIndex !== undefined) {
-      cards = tableau[data.sourceIndex].slice(data.cardIndex)
-    } else if (data.sourceType === "foundation" && data.sourceIndex !== undefined) {
-      cards = [foundations[data.sourceIndex][data.cardIndex]]
-    } else {
-      cards = [waste[data.cardIndex]]
-    }
-
-    const info = { sourceType: data.sourceType, sourceIndex: data.sourceIndex, cardIndex: data.cardIndex, cards }
-    dragSourceInfoRef.current = info
-    setDragSourceInfo(info)
+    clearSelection()
+    const data = event.active.data.current
+    const board = useGameStore.getState()
+    if (settingsOpen || board.isDealing || board.won || recyclingRef.current) return
+    if (!data || (data.sourceType !== 'waste' && data.sourceType !== 'tableau' && data.sourceType !== 'foundation')) return
+    const source = resolveSource(board, data.sourceType, data.sourceIndex, data.cardIndex, data.offsets)
+    dragRef.current = source
+    setDragSourceInfo(source)
+    suppressUntil.current = Infinity
+    if (source) setStatus(`${cardName(source.cards[0])} picked up.`)
   }
 
   function handleDragOver(event: DragOverEvent) {
-    const sourceInfo = dragSourceInfoRef.current
-    const { over } = event
-    if (!sourceInfo || !over) { setDragOverInfo(null); return }
-    const dest = over.data.current as { toType: "tableau" | "foundation"; toIndex: number } | null
-    if (!dest?.toType || dest.toIndex == null) { setDragOverInfo(null); return }
-    if (sourceInfo.sourceType === dest.toType && sourceInfo.sourceIndex === dest.toIndex) {
-      setDragOverInfo(null); return
-    }
-    const destPile = dest.toType === 'tableau' ? tableau[dest.toIndex] : foundations[dest.toIndex]
-    if (!destPile || !canMoveStack(sourceInfo.cards, destPile, dest.toType)) {
-      setDragOverInfo(null); return
-    }
-    // Functional updater: skip re-render when the hovered target hasn't changed
-    setDragOverInfo(prev =>
-      prev?.toType === dest.toType && prev?.toIndex === dest.toIndex
-        ? prev
-        : { toType: dest.toType, toIndex: dest.toIndex }
-    )
+    const dest = readDestination(event.over?.data.current)
+    const source = dragRef.current
+    const legal = dest && source && isLegalDestination(useGameStore.getState(), source, dest)
+    setDragOverInfo(prev => legal
+      ? prev?.toType === dest.toType && prev.toIndex === dest.toIndex ? prev : dest
+      : null)
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    // Capture snapshot BEFORE clearing — active.data.current can be stale/null
-    // because the dragged CardView unmounts mid-drag (replaced by its ghost outline).
-    const snapshot = dragSourceInfo
-    dragSourceInfoRef.current = null
-    setDragSourceInfo(null)
-    setDragOverInfo(null)
-
-    const { over } = event
-    if (!over || !snapshot) return
-
-    const dest = over.data.current as { toType: "tableau" | "foundation"; toIndex: number } | null
-    if (!dest?.toType || dest.toIndex == null) return
-    if (snapshot.sourceType === dest.toType && snapshot.sourceIndex === dest.toIndex) return
-
-    const destPile = dest.toType === 'tableau' ? tableau[dest.toIndex] : foundations[dest.toIndex]
-    if (!destPile || !canMoveStack(snapshot.cards, destPile, dest.toType)) return
-
-    moveCards({
-      fromType:  snapshot.sourceType as "waste" | "tableau" | "foundation",
-      fromIndex: snapshot.sourceIndex,
-      cardIndex: snapshot.cardIndex,
-      toType:    dest.toType,
-      toIndex:   dest.toIndex,
-    })
-    playSfx('CARD_PLACE')
-
-    const droppedIds = snapshot.cards.map(c => c.id)
-    useAnimationStore.getState().markDropped(droppedIds)
-    requestAnimationFrame(() => { useAnimationStore.getState().clearDropped(droppedIds) })
-
-    if (snapshot.sourceType === "tableau" && snapshot.sourceIndex !== undefined) {
-      flipTableauTop(snapshot.sourceIndex)
-    }
+    const source = dragRef.current
+    const dest = readDestination(event.over?.data.current)
+    cancelInteraction()
+    if (source && dest) commit(source, dest)
   }
 
-  function handleDoubleClick(
-    card: Card,
-    cardIndex: number,
-    sourceType: "waste" | "tableau" | "foundation",
-    sourceIndex?: number
-  ) {
-    if (!card.faceUp) return
-
-    const sourcePile =
-      sourceType === 'tableau' && sourceIndex !== undefined
-        ? tableau[sourceIndex]
-        : sourceType === 'foundation' && sourceIndex !== undefined
-          ? foundations[sourceIndex]
-          : waste
-    if (cardIndex !== sourcePile.length - 1) return
-
-    for (let i = 0; i < 4; i++) {
-      if (canMoveStack([card], foundations[i], 'foundation')) {
-        moveCards({ fromType: sourceType, fromIndex: sourceIndex, cardIndex, toType: 'foundation', toIndex: i })
-        playSfx('CARD_PLACE')
-        if (sourceType === 'tableau' && sourceIndex !== undefined) {
-          flipTableauTop(sourceIndex)
-        }
-        return
-      }
+  function handleDoubleClick(card: Card, cardIndex: number, sourceType: SourceType, sourceIndex?: number) {
+    if (Date.now() < suppressUntil.current) return
+    if (selectAndPlaceEnabled) {
+      selectSource(card, cardIndex, sourceType, sourceIndex)
+      return
+    }
+    const board = useGameStore.getState()
+    const source = resolveSource(board, sourceType, sourceIndex, cardIndex)
+    if (!source || source.cards.length !== 1) return
+    for (let i = 0; i < board.foundations.length; i++) {
+      const dest: Destination = { toType: 'foundation', toIndex: i }
+      if (isLegalDestination(board, source, dest)) { commit(source, dest); return }
     }
   }
 
   function handleStockClick() {
-    // Read fresh store state rather than the render-time `stock`/`recycleCount`
-    // closures. Rapid taps fire multiple click handlers within one render cycle;
-    // a stale `stock.length > 0` would call drawFromStock() after the stock has
-    // already emptied, which silently early-returns and looks like "the deck
-    // stopped working."
-    const { stock: freshStock, recycleCount: freshRecycleCount } = useGameStore.getState()
-    const freshCanRecycle =
-      stockRecycles === 'unlimited' || freshRecycleCount < (stockRecycles as number)
-
-    if (freshStock.length > 0) {
-      drawFromStock(drawMode)
-      playSfx('CARD_DRAW')
-    } else if (freshCanRecycle) {
+    if (dragRef.current || recyclingRef.current) return
+    clearSelection()
+    const board = useGameStore.getState()
+    if (board.isDealing || board.won) return
+    if (board.stock.length) {
+      board.drawFromStock(drawMode)
+      setStatus('Cards drawn from stock.')
+    } else if (board.waste.length && (stockRecycles === 'unlimited' || board.recycleCount < stockRecycles)) {
       if (animationsEnabled) {
+        recyclingRef.current = true
         setIsRecycling(true)
-      } else {
-        resetStock()
-      }
-      playSfx('CARD_DRAW')
-    }
+      } else board.resetStock()
+      setStatus('Stock recycled.')
+    } else return
+    playSfx('CARD_DRAW')
   }
 
   function handleRecycleComplete() {
-    resetStock()
+    if (!recyclingRef.current) return
+    useGameStore.getState().resetStock()
+    recyclingRef.current = false
     setIsRecycling(false)
   }
 
   return {
-    sensors,
-    dragSourceInfo,
-    dragOverInfo,
-    isRecycling,
-    canRecycle,
-    handleDragStart,
-    handleDragOver,
-    handleDragEnd,
-    handleDoubleClick,
-    handleStockClick,
-    handleRecycleComplete,
+    sensors, collisionDetection, dragSourceInfo, dragOverInfo, selection, status, isRecycling, canRecycle,
+    stockAvailable: stock.length > 0 || canRecycle,
+    handleDragStart, handleDragOver, handleDragEnd, handleDragCancel: cancelInteraction,
+    handleDoubleClick, handleStockClick, handleRecycleComplete, placeSelection, clearSelection,
+    isGestureSuppressed: () => Date.now() < suppressUntil.current,
   }
 }

@@ -2,9 +2,9 @@ import {
   DndContext,
   DragOverlay,
   MeasuringStrategy,
-  pointerWithin,
 } from "@dnd-kit/core"
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from 'react-dom'
 import { LayoutGroup } from "framer-motion"
 import { useGameStore }    from "../store/useGameStore"
 import { useOptionsStore } from "../store/useOptionsStore"
@@ -22,7 +22,10 @@ import { WinCascade }      from "./WinCascade"
 import { DeadGameModal }   from "./DeadGameModal"
 import { calculateScore, calculateVegasScore, formatVegasScore, formatTime } from "../utils/scoring"
 import { useTimer }        from "../hooks/useTimer"
-import { Timer, Star, Coins, Lightbulb, Undo2, Zap, Bot } from 'lucide-react'
+import { Timer, Star, Coins } from 'lucide-react'
+import { GameActions } from './GameActions'
+import { isLegalDestination, type Destination } from '../controllers/interactions'
+import { useAnimations } from '../hooks/useAnimations'
 import { useAIPlayer }           from '../hooks/useAIPlayer'
 import { useAutoComplete }       from '../controllers/useAutoComplete'
 import { useDeadGameDetector }   from '../controllers/useDeadGameDetector'
@@ -39,8 +42,9 @@ import { useBoardAnalysis }      from '../controllers/useBoardAnalysis'
  * All game-rule logic lives in `src/engine/`.
  * Controller hooks own their respective side-effects.
  */
-export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
+export function GameBoard({ onOpenSettings, settingsOpen = false }: { onOpenSettings?: () => void; settingsOpen?: boolean }) {
   const [a11yStatus, setA11yStatus] = useState('')
+  const animationsEnabled = useAnimations()
   const lastAnnouncedMoveCount = useRef<number | null>(null)
   const {
     foundations, tableau,
@@ -49,13 +53,14 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   } = useGameStore()
   const wasteLength = useGameStore((s) => s.waste.length)
 
-  const { deckLocation, drawMode, cardBackId, undoLimit, hintsEnabled, scoringMode, showAI4ME } = useOptionsStore()
+  const { deckLocation, drawMode, cardBackId, undoLimit, hintsEnabled, scoringMode, showAI4ME,
+    selectAndPlaceEnabled, highlightLegalTargets } = useOptionsStore()
 
   const canUndo = useGameStore((s) => s.history.length > 0)
     && (undoLimit === 'unlimited' || undosUsed < (undoLimit as number))
 
   const elapsed = useTimer(!won && !isDealing, dealId)
-  const { scale, layout }   = useGameScale()
+  const { scale, layout, isPhone }   = useGameScale()
   const canvasW = layout === 'portrait' ? CANVAS_W_PORTRAIT : CANVAS_W_LANDSCAPE
   const foundationCardCount = foundations.reduce((n, p) => n + p.length, 0)
   const standardScore = calculateScore({ drawMode: drawMode as 1 | 3, timeSeconds: elapsed, moves: moveCount, undosUsed })
@@ -63,18 +68,57 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   const { autoCompleting, setAutoCompleting, canAutoComplete } = useAutoComplete()
   const {
-    sensors, dragSourceInfo, dragOverInfo,
+    sensors, collisionDetection, dragSourceInfo, dragOverInfo, selection, status,
     isRecycling, canRecycle,
-    handleDragStart, handleDragOver, handleDragEnd, handleDoubleClick, handleStockClick, handleRecycleComplete,
-  } = useGameController()
+    handleDragStart, handleDragOver, handleDragEnd, handleDragCancel, handleDoubleClick, handleStockClick, handleRecycleComplete,
+    placeSelection, clearSelection, isGestureSuppressed,
+  } = useGameController(settingsOpen)
   const analysis = useBoardAnalysis(autoCompleting || won || isDealing || isRecycling || dragSourceInfo !== null)
   const [deadGame, setDeadGame] = useDeadGameDetector(analysis)
   const { handleHint, stockHinted, hintMessage } = useHintController(analysis)
   const { isAIPlaying, setIsAIPlaying } = useAIPlayer(analysis)
   const handleManualDoubleClick: typeof handleDoubleClick = (...args) => {
     setIsAIPlaying(false)
+    setAutoCompleting(false)
+    if (selectAndPlaceEnabled && selection && args[2] !== 'waste' && args[3] !== undefined) {
+      placeSelection({ toType: args[2], toIndex: args[3] })
+      return
+    }
     handleDoubleClick(...args)
   }
+
+  function targetHighlighted(dest: Destination) {
+    const source = dragSourceInfo ?? selection
+    return !!source && isLegalDestination(useGameStore.getState(), source, dest) &&
+      (highlightLegalTargets || dragOverInfo?.toType === dest.toType && dragOverInfo.toIndex === dest.toIndex)
+  }
+
+  const interactionBusy = !!dragSourceInfo || isRecycling || isDealing || autoCompleting
+  const actions = (
+    <GameActions mobile={isPhone} moveCount={moveCount} mobileScore={<>
+      <span className="phone-stat-label">{scoringMode === 'vegas' ? 'Profit' : 'Score'}</span>
+      <span className={`phone-stat-value ${scoringMode === 'vegas' ? (vegasProfit >= 0 ? 'text-emerald-300' : 'text-red-300') : ''}`}>
+        {scoringMode === 'vegas' ? formatVegasScore(vegasProfit) : standardScore}
+      </span>
+      {scoringMode === 'standard' && <span className="phone-stat-time" title="Time" aria-label={`Time ${formatTime(elapsed)}`}>{formatTime(elapsed)}</span>}
+    </>} canUndo={canUndo} hintsEnabled={hintsEnabled}
+      hintDisabled={isAIPlaying || analysis.status !== 'ready'} showAI={showAI4ME}
+      isAIPlaying={isAIPlaying} aiDisabled={won || interactionBusy}
+      showAuto={canAutoComplete || autoCompleting} autoCompleting={autoCompleting}
+      interactionBusy={!!dragSourceInfo || isRecycling || isDealing}
+      onUndo={() => {
+        clearSelection()
+        setIsAIPlaying(false)
+        useAnimationStore.getState().setJustUndid(true)
+        undo()
+        requestAnimationFrame(() => useAnimationStore.getState().setJustUndid(false))
+      }}
+      onHint={handleHint}
+      onAI={() => { clearSelection(); setIsAIPlaying(v => !v) }}
+      onAuto={() => { clearSelection(); setAutoCompleting(v => !v) }}
+      onMenu={() => { clearSelection(); onOpenSettings?.() }}
+    />
+  )
 
   useStatsRecorder({ elapsed, vegasProfit, standardScore })
 
@@ -121,6 +165,11 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
       pile={pile}
       dragSourceInfo={dragSourceInfo}
       scale={scale}
+      selected={selection?.sourceType === 'foundation' && selection.sourceIndex === i}
+      legalTarget={targetHighlighted({ toType: 'foundation', toIndex: i })}
+      onDoubleClick={selectAndPlaceEnabled ? handleManualDoubleClick : undefined}
+      onDestination={selection ? () => { if (!isGestureSuppressed()) placeSelection({ toType: 'foundation', toIndex: i }) } : undefined}
+      isGestureSuppressed={isGestureSuppressed}
       previewCard={
         dragOverInfo?.toType === 'foundation' && dragOverInfo.toIndex === i
           ? dragSourceInfo?.cards[0]
@@ -134,9 +183,10 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   ))
 
   const spacer           = <div key="spacer" className="flex-1" />
-  const stockEl          = <StockPile key="stock" isRecycling={isRecycling} canRecycle={canRecycle} onClick={() => { setIsAIPlaying(false); handleStockClick() }} hinted={stockHinted} />
+  const stockEl          = <StockPile key="stock" isRecycling={isRecycling} canRecycle={canRecycle} onClick={() => { setIsAIPlaying(false); setAutoCompleting(false); handleStockClick() }} hinted={stockHinted} />
   const wastePlaceholder = <div key="waste-placeholder" className={`shrink-0 h-16.75 ${wastePlaceholderWidthClass}`} />
-  const wasteEl          = <WastePile key="waste" scale={scale} isDraggingNow={dragSourceInfo !== null} onDoubleClick={handleManualDoubleClick} />
+  const wasteEl          = <WastePile key="waste" scale={scale} isDraggingNow={dragSourceInfo !== null} onDoubleClick={handleManualDoubleClick}
+    selected={selection?.sourceType === 'waste'} isGestureSuppressed={isGestureSuppressed} />
 
   const topRowItems =
     deckLocation === 'left'
@@ -151,30 +201,38 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const gridGapPx = layout === 'portrait' ? 6 : 18
 
   return (
-    <main className="w-full h-full" aria-label="Solitaire board">
+    <main className="w-full h-full" aria-label="Solitaire board" onClick={event => {
+      if (event.target instanceof Element && !event.target.closest('[data-card-id], [data-pile], button, [role="dialog"]') && !isGestureSuppressed()) clearSelection()
+    }}>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {a11yStatus}
+        {a11yStatus} {status}
       </div>
       <LayoutGroup id="board">
       {/* DndContext is OUTSIDE GameCanvas so all dnd-kit coordinate math happens
           in screen space, not inside the CSS transform: scale() container. */}
       <DndContext
         sensors={sensors}
-        collisionDetection={pointerWithin}
-        onDragStart={event => { setIsAIPlaying(false); handleDragStart(event) }}
+        collisionDetection={collisionDetection}
+        accessibility={{ screenReaderInstructions: { draggable: '' }, announcements: {
+          onDragStart: () => '', onDragOver: () => '', onDragEnd: () => '', onDragCancel: () => '',
+        } }}
+        onDragStart={event => { setIsAIPlaying(false); setAutoCompleting(false); handleDragStart(event) }}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
         measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       >
         <GameCanvas>
-          <div className="w-full min-h-full p-2.25 flex flex-col gap-1.5">
+          <div className="w-full min-h-full p-2.25 flex flex-col gap-1.5" onClick={event => {
+            if (event.target === event.currentTarget && !isGestureSuppressed()) clearSelection()
+          }}>
             {/* Top row: Stock / Waste / gap / Foundations (order depends on deckLocation) */}
             <div className={`flex ${gridGap} items-start h-16.75`}>
               {topRowItems}
             </div>
 
             {/* HUD: timer · score · moves · action buttons */}
-            <div className="flex items-center h-6.5">
+            {!isPhone && <div className="flex items-center h-6.5" data-drop-block>
               <div className="flex items-center gap-2.5 text-white/65 text-[11px] font-mono flex-1 min-w-0">
                 {scoringMode === 'standard' && (
                   <><span title="Time" className="inline-flex items-center gap-1"><Timer size={11} strokeWidth={2} />{formatTime(elapsed)}</span>
@@ -187,58 +245,14 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                 )}
                 <span title="Moves">Moves: {moveCount}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13]"
-                  onClick={() => {
-                    setIsAIPlaying(false)
-                    useAnimationStore.getState().setJustUndid(true)
-                    undo()
-                    requestAnimationFrame(() => { useAnimationStore.getState().setJustUndid(false) })
-                  }}
-                  disabled={!canUndo}
-                  title="Undo"
-                ><Undo2 size={11} strokeWidth={2} /> Undo</button>
-                {hintsEnabled && (
-                <button
-                  className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13]"
-                  onClick={handleHint}
-                  disabled={isAIPlaying || analysis.status !== 'ready'}
-                  title="Show hint"
-                ><Lightbulb size={11} strokeWidth={2} /> Hint</button>
-                )}
-                {showAI4ME && (
-                <button
-                  className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13] ${
-                    isAIPlaying
-                      ? 'bg-[#9C528B]/40 hover:bg-[#9C528B]/55 text-[#e8b8de]'
-                      : 'bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80'
-                  }`}
-                  onClick={() => setIsAIPlaying(v => !v)}
-                  disabled={won || isDealing || autoCompleting || isRecycling || dragSourceInfo !== null}
-                  title={isAIPlaying ? 'Stop AI4ME' : 'AI4ME: auto-play the game'}
-                ><Bot size={11} strokeWidth={2} /> AI4ME</button>
-                )}
-                {(canAutoComplete || autoCompleting) && (
-                  <button
-                    className={`px-1.75 h-5.5 rounded-sm text-[10px] font-medium transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13] ${
-                      autoCompleting
-                        ? 'bg-emerald-500/40 hover:bg-emerald-500/55 text-emerald-200'
-                        : 'bg-white/10 hover:bg-white/20 text-white/80'
-                    }`}
-                    onClick={() => setAutoCompleting(v => !v)}
-                    disabled={isAIPlaying}
-                    title="Auto-complete"
-                  ><Zap size={11} strokeWidth={2} /> Auto</button>
-                )}
-              </div>
-            </div>
+              {actions}
+            </div>}
 
-            <div className="text-white/60 text-[10px] min-h-3.5" role="status" aria-live="polite">
+            <div className="text-white/80 text-[10px] h-3.5 truncate" role="status" aria-live="polite" data-drop-block>
               {analysis.status === 'error'
                 ? `Move analysis unavailable: ${analysis.error}`
                 : analysis.status === 'pending'
-                  ? 'Analyzing visible moves...'
+                  ? ''
                   : analysis.result?.status === 'unknown'
                     ? 'Search limit reached. No dead end proven; you can keep playing.'
                     : hintMessage}
@@ -261,7 +275,12 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                   dragSourceInfo={dragSourceInfo}
                   scale={scale}
                   layout={layout}
+                  isPhone={isPhone}
                   onDoubleClick={handleManualDoubleClick}
+                  selectedCardIndex={selection?.sourceType === 'tableau' && selection.sourceIndex === i ? selection.cardIndex : undefined}
+                  legalTarget={targetHighlighted({ toType: 'tableau', toIndex: i })}
+                  onDestination={selection ? () => { if (!isGestureSuppressed()) placeSelection({ toType: 'tableau', toIndex: i }) } : undefined}
+                  isGestureSuppressed={isGestureSuppressed}
                   previewCards={
                     dragOverInfo?.toType === 'tableau' && dragOverInfo.toIndex === i
                       ? dragSourceInfo?.cards
@@ -295,11 +314,20 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
         </GameCanvas>
 
         {/* DragOverlay is portalled to document.body (screen space). */}
-        <DragOverlay dropAnimation={null}>
-          {dragSourceInfo && <DragStack cards={dragSourceInfo.cards} scale={scale} />}
+        <DragOverlay dropAnimation={animationsEnabled ? {
+          duration: 140,
+          easing: 'ease-out',
+          // Do not restore dnd-kit's captured opacity over Framer Motion's live value.
+          sideEffects: ({ active }) => {
+            active.node.dataset.returning = 'true'
+            return () => { delete active.node.dataset.returning }
+          },
+        } : null}>
+          {dragSourceInfo && <DragStack cards={dragSourceInfo.cards} scale={scale} offsets={dragSourceInfo.offsets} />}
         </DragOverlay>
       </DndContext>
       </LayoutGroup>
+      {isPhone && createPortal(actions, document.body)}
     </main>
   )
 }

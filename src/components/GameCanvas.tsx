@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { CANVAS_W_LANDSCAPE, CANVAS_H, CANVAS_W_PORTRAIT, CANVAS_H_PORTRAIT } from '../constants/canvas'
-import { useGameScale } from '../hooks/useGameScale'
+import { PHONE_ACTIONS_H, useGameScale } from '../hooks/useGameScale'
 import { DebugOverlay, isDebugEnabled } from './DebugOverlay'
 
 /** Props for {@link GameCanvas}. */
@@ -26,7 +26,7 @@ interface GameCanvasProps {
  * scale transform is applied only at this boundary.
  */
 export function GameCanvas({ children }: GameCanvasProps) {
-  const { scale, layout } = useGameScale()
+  const { scale, layout, isPhone } = useGameScale()
   const canvasW = layout === 'portrait' ? CANVAS_W_PORTRAIT : CANVAS_W_LANDSCAPE
   const canvasH = layout === 'portrait' ? CANVAS_H_PORTRAIT : CANVAS_H
 
@@ -39,6 +39,7 @@ export function GameCanvas({ children }: GameCanvasProps) {
           playfield never overlaps the notch, Dynamic Island, or home indicator. */}
       <div
         className="absolute inset-0 flex items-center justify-center game-canvas-safe-center"
+        style={{ bottom: isPhone ? PHONE_ACTIONS_H : 0 }}
       >
         <motion.div
           className="shrink-0 relative overflow-visible"

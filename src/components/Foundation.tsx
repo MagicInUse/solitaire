@@ -31,6 +31,11 @@ interface FoundationProps {
    * is the target of the active hint.
    */
   hinted?: boolean
+  selected?: boolean
+  legalTarget?: boolean
+  onDestination?: () => void
+  onDoubleClick?: React.ComponentProps<typeof CardView>['onDoubleClick']
+  isGestureSuppressed?: () => boolean
 }
 
 /**
@@ -42,8 +47,9 @@ interface FoundationProps {
  * - Renders an optional {@link CardFace} preview overlay while a valid card
  *   hovers above the slot.
  */
-export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hinted }: FoundationProps) {
-  const { setNodeRef, isOver } = useDroppable({
+export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hinted,
+  selected, legalTarget, onDestination, onDoubleClick, isGestureSuppressed }: FoundationProps) {
+  const { setNodeRef } = useDroppable({
     id: `foundation-${index}`,
     data: { toType: "foundation", toIndex: index },
   })
@@ -73,10 +79,10 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
     pile.length > 0
 
   return (
-    <div ref={setNodeRef} className={clsx("relative w-12 h-16.75 rounded-[5px] shrink-0 [transition:background_0.15s]", isOver && "bg-white/15")}>
-      {isGhosted ? (
-        <div className="w-full h-full rounded-[5px] border-2 border-dashed border-white/40 flex items-center justify-center text-[19px] text-white/40">{SUIT_SYMBOLS[index]}</div>
-      ) : topCard ? (
+    <div ref={setNodeRef} data-pile={`foundation-${index}`} onClick={onDestination}
+      className={clsx("relative w-12 h-16.75 rounded-[5px] shrink-0", legalTarget && 'legal-drop-target')}>
+      {isGhosted && <div className="absolute inset-0 border-2 border-dashed border-white/70 rounded-[5px] pointer-events-none" />}
+      {topCard ? (
         <motion.div
           key={popKey}
           initial={animationsEnabled && popKey > 0 ? { scale: 0.62 } : false}
@@ -94,6 +100,10 @@ export function Foundation({ index, pile, dragSourceInfo, scale, previewCard, hi
             sourceIndex={index}
             scale={scale}
             layout={false}
+            selected={selected}
+            ghosted={isGhosted}
+            onDoubleClick={onDoubleClick}
+            isGestureSuppressed={isGestureSuppressed}
           />
         </motion.div>
       ) : (

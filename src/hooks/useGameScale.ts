@@ -32,6 +32,22 @@ export interface GameLayout {
   scale: number
   /** Current layout mode — drives canvas dimensions. */
   layout: GameLayoutMode
+  isPhone?: boolean
+}
+
+export const PHONE_ACTIONS_H = 64
+
+export function computePlayableLayout(w: number, h: number): GameLayout {
+  const isPhone = w < 768 || (w <= 960 && h <= 500)
+  const result = computeLayout(w, Math.max(1, h - (isPhone ? PHONE_ACTIONS_H : 0)))
+  // Reserve toolbar space without changing the device's orientation classification.
+  const layout: GameLayoutMode = h > w ? 'portrait' : 'landscape'
+  const height = Math.max(1, h - (isPhone ? PHONE_ACTIONS_H : 0))
+  return {
+    ...result, layout, isPhone,
+    scale: Math.min(w / (layout === 'portrait' ? CANVAS_W_PORTRAIT : CANVAS_W_LANDSCAPE),
+      height / (layout === 'portrait' ? CANVAS_H_PORTRAIT : CANVAS_H), MAX_SCALE),
+  }
 }
 
 /**
@@ -96,7 +112,7 @@ function getDocumentDimensions(): [number, number] {
 export function useGameScale(): GameLayout {
   const [gameLayout, setGameLayout] = useState<GameLayout>(() => {
     const [w, h] = getDocumentDimensions()
-    return computeLayout(w, h)
+    return computePlayableLayout(w, h)
   })
 
   useEffect(() => {
@@ -105,7 +121,7 @@ export function useGameScale(): GameLayout {
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (entry) {
-        setGameLayout(computeLayout(entry.contentRect.width, entry.contentRect.height))
+        setGameLayout(computePlayableLayout(entry.contentRect.width, entry.contentRect.height))
       }
     })
     ro.observe(document.documentElement)
@@ -117,7 +133,7 @@ export function useGameScale(): GameLayout {
       clearTimeout(orientationTimer)
       orientationTimer = setTimeout(() => {
         const [w, h] = getDocumentDimensions()
-        setGameLayout(computeLayout(w, h))
+        setGameLayout(computePlayableLayout(w, h))
       }, 150)
     }
     window.addEventListener('orientationchange', handleOrientationChange)

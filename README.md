@@ -13,6 +13,8 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Drag & drop** — pointer and touch via dnd-kit; drag entire face-up stacks
 - **Single-tap to auto-move** — a plain tap (or click) sends a card to the correct foundation; this is the default. Prefer the classic feel? Switch to **double-tap** under **Settings → Options → Controls**
 - **Drop previews** — translucent ghost shows exactly where a stack will land
+- **Manual select and place** — optional under **Settings → Options → Controls**, off by default. Tap a visible card/stack, then its destination. Dragging and existing foundation shortcuts remain available; when selection mode is on, taps select/place instead of auto-sending to foundations
+- **Forgiving, not automatic drops** — a 10 CSS-pixel near miss can land on a single legal pile. Ambiguous or distant releases return quietly; no nearest-pile autoplay. Dragged stacks retain their compressed spacing
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
 - **Hints** — 💡 recommends the first step of the same visible-card plan used by Auto Play. Card moves highlight source and destination; draw/recycle suggestions highlight the stock and explain the action. Repeated taps repeat the recommendation rather than running independent searches
 - **AI4ME auto-player** — an optional human-information bot. A shared Web Worker uses compact card states, best-first search, column symmetry reduction, and a recycle-aware transposition table to plan visible rearrangements, including foundation back-moves. It never reads hidden tableau faces or unseen stock faces, never scouts with Undo, and ends its plan at a reveal or unknown draw before reassessing. Cards already turned over are remembered for later stock passes during the current session; this memory resets on a new deal and is not persisted across reloads. Toggle its button and speed (Slow / Normal / Fast) in **Settings → Assist**
@@ -33,6 +35,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Stock recycles** — unlimited, 3, 2, or 1
 - **Undo limit** — unlimited, 3, 1, or disabled
 - **Controls** — single-tap (default) or double-tap to auto-move a card to its foundation
+- **Optional readability and guidance** — High Contrast Cards in Visuals enlarges corner labels and strengthens outlines without changing your theme. Show Legal Destinations highlights all legal piles while dragging/selecting. Both default off; ordinary dragging highlights only the hovered legal destination
 
 ### Stats & Leaderboard
 - Lifetime stats: games played, won, win %, current streak, best streak, fastest win, best score
@@ -41,6 +44,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 ### Visuals & Options
 - **Theme selector** — choose between Standard (green felt), Dark (moody), or unlock the secret Cosmic theme with stars and a moon ✨ (tap the Dark button 5 times in 2 seconds)
 - **6 card backs** to choose from
+- **Crisp dark cards** — stronger edges and light suit colors without rank strokes or blurred icon shadows; dark menus use solid, readable surfaces rather than backdrop blur
 - **Animations toggle** — disable deal / flip / win cascade for low-power preference
 - **Reduced motion** — every animation also honours the OS `prefers-reduced-motion` setting, so the game stills itself automatically when the system requests it
 - **Deck position** — stock + waste on the left or right
@@ -58,12 +62,14 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Undo spring** — undone cards snap back with a spring (`stiffness: 380, damping: 28`) for a tactile "rubber-band" feel
 - **Foundation pop-in** — a card landing on a foundation springs up from a slightly smaller scale, giving immediate "snap home" feedback the instant it arrives
 - **Hint pulse** — hinted cards glow with a looping platinum-coloured pulse so the suggestion is impossible to miss
+- Routine background move analysis stays quiet; hint guidance, analysis errors, and search-limit notices remain visible without shifting the board.
 - **Consistent cinematography** — shared duration / easing constants (`constants/animations.ts`) keep every motion on the same timing language, and a single `useAnimations()` hook gates all motion on both the in-app toggle and the OS reduced-motion preference
 
 ### Layout
 - **Adaptive canvas** — fixed 462 × 390 (landscape) or 390 × 750 (portrait) logical canvas, CSS-scaled to fit any viewport; scale capped at 2.5× on large screens. The wider landscape canvas reclaims side felt and spreads the columns to an even gap while keeping edge room for future ambient decorations
 - **Portrait & landscape** — layout mode detected reliably on iOS (uses `document.documentElement` dimensions to avoid stale `window.innerWidth` on rotation)
 - **Safe-area aware** — respects notch, Dynamic Island, and home indicator insets
+- **Phone action bar** — Score/profit sits to the left of the buttons and Moves to the right; standard-mode time stays with the score. Undo, Hint, menu, and enabled assistance actions use unscaled 44 × 44 CSS-pixel controls at the bottom, freeing the former HUD row for on-board stacks. Desktop retains its in-board toolbar
 - **PWA** — installable on iOS and Android; works fully offline; service-worker update banner
 
 ---
@@ -72,11 +78,19 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 
 1. Tap the **stock pile** to flip cards onto the waste pile.
 2. **Drag** cards or stacks between tableau columns — alternating colours, descending rank.
-3. **Tap** any card to auto-send it to the correct foundation (or **double-tap** if you switched Controls).
+3. **Tap** an eligible top card to send it to a foundation (or **double-tap** if you switched Controls). With optional **Select and Place** enabled, tap a source and then its destination instead.
 4. Build all four foundation piles from Ace → King to win.
 5. Tap **💡 Hint** if you're stuck, or open the menu for **Undo**.
 
 ---
+
+### Control accessibility
+
+Stock, toolbar, and settings controls use native buttons and
+dialogs retain focus handling. OS reduced motion and the animation setting
+also disable drag lift/return movement. Board keyboard navigation and keyboard
+dragging are not implemented; this is not a claim of WCAG AA conformance.
+There are no keyboard-drag instructions advertising unsupported controls.
 
 ## Tech Stack
 

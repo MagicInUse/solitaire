@@ -1,6 +1,6 @@
 /**
  * @module VisualsPanel
- * All cosmetic settings: card backs, theme, and animations.
+ * Visual settings: card backs, theme, readability, and animations.
  */
 
 import { useRef } from 'react'
@@ -10,7 +10,8 @@ import { Switch } from '../../ui/Switch'
 import vqLogo from '../../../assets/veriquery-logo.png'
 
 export function VisualsPanel() {
-  const { cardBackId, setCardBackId, colorScheme, setColorScheme, animationsEnabled, setAnimationsEnabled } = useOptionsStore()
+  const { cardBackId, setCardBackId, colorScheme, setColorScheme, animationsEnabled, setAnimationsEnabled,
+    highContrastCards, setHighContrastCards } = useOptionsStore()
   const darkClickTimestamps = useRef<number[]>([])
 
   const handleDarkClick = () => {
@@ -110,6 +111,16 @@ export function VisualsPanel() {
             <span className="text-[9px] text-white/22 italic -mt-1">Coming soon</span>
           </button>
         </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h3 className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">
+          Readability
+        </h3>
+        <Switch checked={highContrastCards} onChange={setHighContrastCards} label="High Contrast Cards" />
+        <p className="text-white/70 text-[12px] leading-relaxed">
+          Larger corner labels and stronger card outlines. Your selected theme stays unchanged.
+        </p>
       </section>
 
       {/* Animations */}

@@ -15,6 +15,7 @@ interface DragStackProps {
    * the same visual size as their in-canvas counterparts.
    */
   scale: number
+  offsets?: number[]
 }
 
 /**
@@ -27,22 +28,22 @@ interface DragStackProps {
  *
  * The overlay is not interactive; it is purely cosmetic.
  */
-export function DragStack({ cards, scale }: DragStackProps) {
+export function DragStack({ cards, scale, offsets = [] }: DragStackProps) {
   const animationsEnabled = useAnimations()
-  const totalHeight = (cards.length - 1) * FACEUP_OFFSET + CARD_H
+  const totalHeight = (offsets.at(-1) ?? (cards.length - 1) * FACEUP_OFFSET) + CARD_H
 
   return (
     <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', display: 'inline-block' }}>
       <motion.div
         initial={{ scale: 1 }}
-        animate={{ scale: animationsEnabled ? 1.05 : 1 }}
+        animate={{ scale: animationsEnabled ? 1.025 : 1 }}
         transition={{ duration: DURATION.fast, ease: EASE.out }}
-        style={{ position: 'relative', width: CARD_W, height: totalHeight }}
+        style={{ position: 'relative', width: CARD_W, height: totalHeight, filter: 'drop-shadow(2px 5px 4px rgba(0,0,0,0.45))' }}
       >
         {cards.map((card, i) => (
           <div
             key={card.id}
-            style={{ position: 'absolute', top: i * FACEUP_OFFSET, left: 0, width: CARD_W, height: CARD_H }}
+            style={{ position: 'absolute', top: offsets[i] ?? i * FACEUP_OFFSET, left: 0, width: CARD_W, height: CARD_H }}
           >
             <CardFace card={card} />
           </div>

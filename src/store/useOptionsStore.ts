@@ -2,7 +2,7 @@
  * @module useOptionsStore
  * Persisted Zustand store for all player-configurable game settings.
  *
- * Stored in `localStorage` under `"solitaire-options"` (v1).
+ * Stored in `localStorage` under `"solitaire-options"` (v4).
  */
 
 import { create } from 'zustand'
@@ -23,6 +23,9 @@ interface OptionsStore extends GameOptions {
   setAiSpeed: (v: AISpeed) => void
   setShowAI4ME: (v: boolean) => void
   setInteractionMode: (v: InteractionMode) => void
+  setSelectAndPlaceEnabled: (v: boolean) => void
+  setHighlightLegalTargets: (v: boolean) => void
+  setHighContrastCards: (v: boolean) => void
   setColorScheme: (v: ColorScheme) => void
 }
 
@@ -42,15 +45,19 @@ export const useOptionsStore = create<OptionsStore>()(
       setAiSpeed:            (aiSpeed)            => set({ aiSpeed }),
       setShowAI4ME:          (showAI4ME)          => set({ showAI4ME }),
       setInteractionMode:    (interactionMode)    => set({ interactionMode }),
+      setSelectAndPlaceEnabled: (selectAndPlaceEnabled) => set({ selectAndPlaceEnabled }),
+      setHighlightLegalTargets: (highlightLegalTargets) => set({ highlightLegalTargets }),
+      setHighContrastCards: (highContrastCards) => set({ highContrastCards }),
       setColorScheme:        (colorScheme)        => set({ colorScheme }),
     }),
     {
       name: 'solitaire-options',
-      version: 3,
+      version: 4,
       // v1 → v2: introduce interactionMode. Existing installs adopt the new
       // single-tap default (the previous implicit behaviour was double-tap,
       // but single-tap is the new product default for everyone).
       // v2 → v3: introduce colorScheme. Existing installs default to 'standard'.
+      // v3 -> v4: selection, destination guidance and readable cards default off.
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<GameOptions>
         if (version < 2 && state.interactionMode === undefined) {
@@ -59,7 +66,7 @@ export const useOptionsStore = create<OptionsStore>()(
         if (version < 3 && state.colorScheme === undefined) {
           state.colorScheme = DEFAULT_OPTIONS.colorScheme
         }
-        return state as GameOptions
+        return { ...DEFAULT_OPTIONS, ...state }
       },
     }
   )

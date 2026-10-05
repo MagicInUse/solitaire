@@ -4,11 +4,15 @@
  * replacing the old "New Game" button. Opens the main menu modal.
  */
 
+import { useGameScale } from '../../hooks/useGameScale'
+
 interface MenuButtonProps {
   onClick: () => void
 }
 
 export function MenuButton({ onClick }: MenuButtonProps) {
+  const { isPhone } = useGameScale()
+  if (isPhone) return null
   return (
     <button
       aria-label="Open menu"

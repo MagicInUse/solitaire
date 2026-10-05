@@ -8,7 +8,8 @@ import { Switch } from '../../ui/Switch'
 import type { AISpeed } from '../../../types/options'
 
 export function AssistPanel() {
-  const { hintsEnabled, setHintsEnabled, showAI4ME, setShowAI4ME, aiSpeed, setAiSpeed } = useOptionsStore()
+  const { hintsEnabled, setHintsEnabled, showAI4ME, setShowAI4ME, aiSpeed, setAiSpeed,
+    highlightLegalTargets, setHighlightLegalTargets } = useOptionsStore()
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,6 +26,14 @@ export function AssistPanel() {
         />
         <p className="text-white/30 text-[11px] leading-relaxed -mt-2">
           Show the Hint button during play. Disable for a more challenging experience.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <Switch checked={highlightLegalTargets} onChange={setHighlightLegalTargets} label="Show Legal Destinations" />
+        <p className="text-white/70 text-[12px] leading-relaxed">
+          Off by default. Highlight all legal destinations while dragging or selecting.
+          With this off, dragging highlights only the destination you hover.
         </p>
       </section>
 
