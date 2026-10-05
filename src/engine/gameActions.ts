@@ -24,7 +24,7 @@ export type Board = GameState
  * The log is replayable: dealing a seed and folding these actions in order
  * reproduces the exact final board (see engine/replay).  Actions are the
  * unit of reproducibility for *human* games — AI games reproduce from the
- * seed alone since the AI is deterministic given a board.
+ * action log as well, since live worker search limits depend on device timing.
  */
 export type LoggedAction =
   | { type: 'draw'; drawMode: 1 | 3 }

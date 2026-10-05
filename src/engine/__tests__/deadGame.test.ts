@@ -443,8 +443,8 @@ describe('hasReachableProgress (AXIS 2/3 — genuine advancement)', () => {
   })
 })
 
-describe('isStuckGame (AXIS 4 — modal: alive-but-unwinnable counts as over)', () => {
-  it('fires on a real alive-but-unwinnable endgame (the colored-rocks state)', () => {
+describe('isStuckGame (compatibility: proven visible no-progress)', () => {
+  it('exhausts a real reversible-shuffle endgame (the colored-rocks state)', () => {
     // A genuine end position reached in play: every tableau card is face-up
     // except a few, the stock is empty, and the only legal moves are reversible
     // King/stack relocations between two empty columns plus a foundation
@@ -487,8 +487,7 @@ describe('isStuckGame (AXIS 4 — modal: alive-but-unwinnable counts as over)', 
       drawMode: 3,
     })).toBe(false)
 
-    // …but the modal predicate correctly calls it over: no reachable progress
-    // and no winnable plan.
+    // …but exhaustive visible analysis finds no foundation gain or reveal.
     expect(isStuckGame({ board, recyclesRemaining: Infinity, drawMode: 3 })).toBe(true)
   })
 

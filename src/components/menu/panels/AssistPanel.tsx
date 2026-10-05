@@ -64,7 +64,10 @@ export function AssistPanel() {
       {/* Notes */}
       <section className="flex flex-col gap-3">
         <p className="text-white/30 text-[11px] leading-relaxed -mt-2">
-          Note: AI4ME is not actually AI. It simply executes the optimal move sequence calculated by the game engine, which may not always align with human intuition. It was used to help develop the Hints and Dead Game detection features!
+          AI4ME plans using visible cards and cards already turned over, just like a player
+          with a good memory. It never peeks at hidden cards or scouts with Undo.
+          It reassesses after each reveal. If its search limit is reached, it stops
+          without declaring the game over. It does not guarantee a win.
         </p>
       </section>
 

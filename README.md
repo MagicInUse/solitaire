@@ -14,9 +14,9 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Single-tap to auto-move** — a plain tap (or click) sends a card to the correct foundation; this is the default. Prefer the classic feel? Switch to **double-tap** under **Settings → Options → Controls**
 - **Drop previews** — translucent ghost shows exactly where a stack will land
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
-- **Hints** — 💡 button highlights the best available move; cycles through all valid moves on repeated taps. A bounded multi-ply look-ahead (`filterUsefulHints`) suppresses purely redundant card-shuffling and only surfaces moves that make immediate progress or provably *unlock* progress within a few plies — including foundation back-moves that unbury hidden tableau cards. Highlights both the source and destination of each hint
-- **AI4ME auto-player** — an optional one-tap solver that plays the game for you. A greedy engine takes every strictly-progressive move, and a bounded breadth-first **planner** (`engine/planner.ts`) takes over in tangled mid-game and all-face-up endgame positions to drive the shortest line straight to a full clear. Toggle the button and tune its speed (Slow / Normal / Fast) in **Settings → Assist**; Slow and Normal flash each card before moving so you can follow along
-- **Dead-game detection** — shows a modal the moment the game is no longer winnable. Detection is two-stage: a strict-liveness check confirms whether *any* legal move exists, and a planner-backed `isStuckGame` check then asks whether any **progress** or **win** is still reachable. Once only reversible King/stack shuffles remain — moves that push cards around without ever advancing — the game is declared over ("No Winning Moves Left") even though the board is technically still movable
+- **Hints** — 💡 recommends the first step of the same visible-card plan used by Auto Play. Card moves highlight source and destination; draw/recycle suggestions highlight the stock and explain the action. Repeated taps repeat the recommendation rather than running independent searches
+- **AI4ME auto-player** — an optional human-information bot. A shared Web Worker uses compact card states, best-first search, column symmetry reduction, and a recycle-aware transposition table to plan visible rearrangements, including foundation back-moves. It never reads hidden tableau faces or unseen stock faces, never scouts with Undo, and ends its plan at a reveal or unknown draw before reassessing. Cards already turned over are remembered for later stock passes during the current session; this memory resets on a new deal and is not persisted across reloads. Toggle its button and speed (Slow / Normal / Fast) in **Settings → Assist**
+- **No-progress detection** — the same worker result drives hints, Auto Play, and the **No Progress Left** modal. The modal appears only after exhaustive visible-state search finds no foundation gain, reveal, or new stock information reachable under the actual recycle rules. Reversible shuffles may still be legal; this is not a claim that an unseen deal is unwinnable. Time/node/memory limits return **unknown**, never a dead verdict; Auto Play stops with an explanatory status and manual play remains available
 - **Auto-complete** — cascades remaining cards to foundations when the game is won
 - **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts rendered above the card cascade
 - **Persisted game state** — game survives page reloads and app restarts via `localStorage`
@@ -120,20 +120,41 @@ pnpm generate-pwa-assets
 
 ---
 
+### Assisted-play architecture
+
+`src/engine/analysis.ts` receives only visible numeric card codes (zero means
+unknown). The worker is given neither the deal seed, move history, nor hidden
+card identities. Placement tables are compiled from the canonical rulebook.
+Search prefers reveals and conservative foundation plays, but does not promise
+optimal play or guaranteed wins.
+
+`useBoardAnalysis` owns one analysis client for all assists. Its 64-entry cache
+also retains valid plan suffixes, avoiding a re-solve after each setup move.
+Board/rule changes cancel CPU work by terminating the active worker; stale
+responses and delayed actions are rejected. Default limits are 250 ms of search,
+30,000 expanded nodes, and 60,000 stored states. There is no artificial recycle
+cap: unlimited passes collapse through state deduplication, while finite passes
+use remaining-recycle dominance. Worker failures/timeouts are shown explicitly.
+
+Live search timing can differ by device. Auto Play uses the normal recorded
+actions, so reproduce a played game with its seed **and action log**, not its
+seed alone. Synchronous compatibility adapters use node/memory limits without
+a wall-clock cutoff for deterministic engine tests.
+
 ## Project Structure
 
 ```
 src/
   types/        # Core domain types (Card, Pile, GameState, GameOptions, GameStats)
   constants/    # Canvas dimensions (landscape + portrait)
-  engine/       # Pure game logic: rules, deck, gameActions, hints, deadGame,
-                #   and the BFS planner (planner.ts) that powers AI4ME + stuck
-                #   detection. solver.ts + __tests__ are a test-only oracle and
-                #   seeded AI simulation harness that cross-examine production
+  engine/       # Pure rules, transitions, visible-card analysis + worker;
+                #   planner.ts is a synchronous compatibility adapter.
+                #   solver.ts + __tests__ provide independent test oracles
+  services/     # Cancellable analysis worker client + bounded plan cache
   utils/        # scoring, hints (re-exports), layout compression, card backs,
-                #   drag tracking, aiPlayer (greedy + planner move selection)
+                #   drag tracking, aiPlayer (synchronous simulation adapter)
   store/        # Zustand stores: game state, player options, lifetime stats
-  controllers/  # useGameController, useDeadGameDetector, useAutoComplete, useHintController
+  controllers/  # Shared useBoardAnalysis and game/assist controllers
   hooks/        # useAIPlayer, useGameScale (viewport → scale + mode), useTimer,
                 #   useAnimations (motion gate: in-app toggle + OS reduced-motion)
   components/
@@ -145,7 +166,7 @@ src/
     GameBoard/  # Top-level game controller and HUD (incl. AI4ME button)
     GameCanvas/ # Full-screen felt world + CSS scale boundary
     WinCascade/     # Win animation — cards cascade to foundations
-    DeadGameModal/ # Modal shown when no winning moves remain
+    DeadGameModal/ # Modal shown only for proven visible no-progress
     menu/          # MenuButton + MenuModal with tabbed panels
       panels/      # NewGame, Rules, Visuals, Options, Assist, Leaderboard
     ui/            # Modal, Button, Switch primitives

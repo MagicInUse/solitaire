@@ -29,6 +29,7 @@ import { useDeadGameDetector }   from '../controllers/useDeadGameDetector'
 import { useHintController }     from '../controllers/useHintController'
 import { useStatsRecorder }      from '../controllers/useStatsRecorder'
 import { useGameController }     from '../controllers/useGameController'
+import { useBoardAnalysis }      from '../controllers/useBoardAnalysis'
 
 
 /**
@@ -61,14 +62,19 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const vegasProfit   = calculateVegasScore(foundationCardCount)
 
   const { autoCompleting, setAutoCompleting, canAutoComplete } = useAutoComplete()
-  const [deadGame, setDeadGame] = useDeadGameDetector(autoCompleting)
-  const { handleHint }          = useHintController()
-  const { isAIPlaying, setIsAIPlaying } = useAIPlayer(deadGame)
   const {
     sensors, dragSourceInfo, dragOverInfo,
     isRecycling, canRecycle,
     handleDragStart, handleDragOver, handleDragEnd, handleDoubleClick, handleStockClick, handleRecycleComplete,
   } = useGameController()
+  const analysis = useBoardAnalysis(autoCompleting || won || isDealing || isRecycling || dragSourceInfo !== null)
+  const [deadGame, setDeadGame] = useDeadGameDetector(analysis)
+  const { handleHint, stockHinted, hintMessage } = useHintController(analysis)
+  const { isAIPlaying, setIsAIPlaying } = useAIPlayer(analysis)
+  const handleManualDoubleClick: typeof handleDoubleClick = (...args) => {
+    setIsAIPlaying(false)
+    handleDoubleClick(...args)
+  }
 
   useStatsRecorder({ elapsed, vegasProfit, standardScore })
 
@@ -128,9 +134,9 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
   ))
 
   const spacer           = <div key="spacer" className="flex-1" />
-  const stockEl          = <StockPile key="stock" isRecycling={isRecycling} canRecycle={canRecycle} onClick={handleStockClick} />
+  const stockEl          = <StockPile key="stock" isRecycling={isRecycling} canRecycle={canRecycle} onClick={() => { setIsAIPlaying(false); handleStockClick() }} hinted={stockHinted} />
   const wastePlaceholder = <div key="waste-placeholder" className={`shrink-0 h-16.75 ${wastePlaceholderWidthClass}`} />
-  const wasteEl          = <WastePile key="waste" scale={scale} isDraggingNow={dragSourceInfo !== null} onDoubleClick={handleDoubleClick} />
+  const wasteEl          = <WastePile key="waste" scale={scale} isDraggingNow={dragSourceInfo !== null} onDoubleClick={handleManualDoubleClick} />
 
   const topRowItems =
     deckLocation === 'left'
@@ -155,7 +161,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
+        onDragStart={event => { setIsAIPlaying(false); handleDragStart(event) }}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
@@ -185,6 +191,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                 <button
                   className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 disabled:opacity-30 disabled:cursor-default transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13]"
                   onClick={() => {
+                    setIsAIPlaying(false)
                     useAnimationStore.getState().setJustUndid(true)
                     undo()
                     requestAnimationFrame(() => { useAnimationStore.getState().setJustUndid(false) })
@@ -196,7 +203,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                 <button
                   className="px-1.75 h-5.5 rounded-sm text-[10px] font-medium bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80 transition-colors inline-flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-white/65 focus-visible:ring-offset-2 focus-visible:ring-offset-[#131f13]"
                   onClick={handleHint}
-                  disabled={isAIPlaying}
+                  disabled={isAIPlaying || analysis.status !== 'ready'}
                   title="Show hint"
                 ><Lightbulb size={11} strokeWidth={2} /> Hint</button>
                 )}
@@ -208,7 +215,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                       : 'bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/80'
                   }`}
                   onClick={() => setIsAIPlaying(v => !v)}
-                  disabled={won || isDealing || autoCompleting}
+                  disabled={won || isDealing || autoCompleting || isRecycling || dragSourceInfo !== null}
                   title={isAIPlaying ? 'Stop AI4ME' : 'AI4ME: auto-play the game'}
                 ><Bot size={11} strokeWidth={2} /> AI4ME</button>
                 )}
@@ -225,6 +232,16 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                   ><Zap size={11} strokeWidth={2} /> Auto</button>
                 )}
               </div>
+            </div>
+
+            <div className="text-white/60 text-[10px] min-h-3.5" role="status" aria-live="polite">
+              {analysis.status === 'error'
+                ? `Move analysis unavailable: ${analysis.error}`
+                : analysis.status === 'pending'
+                  ? 'Analyzing visible moves...'
+                  : analysis.result?.status === 'unknown'
+                    ? 'Search limit reached. No dead end proven; you can keep playing.'
+                    : hintMessage}
             </div>
 
             <DeadGameModal
@@ -244,7 +261,7 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
                   dragSourceInfo={dragSourceInfo}
                   scale={scale}
                   layout={layout}
-                  onDoubleClick={handleDoubleClick}
+                  onDoubleClick={handleManualDoubleClick}
                   previewCards={
                     dragOverInfo?.toType === 'tableau' && dragOverInfo.toIndex === i
                       ? dragSourceInfo?.cards
@@ -286,4 +303,3 @@ export function GameBoard({ onOpenSettings }: { onOpenSettings?: () => void }) {
     </main>
   )
 }
-
