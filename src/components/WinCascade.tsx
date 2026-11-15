@@ -1,25 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy } from 'lucide-react'
-import type { Pile } from '../types/cards'
+import type { Card, Pile } from '../types/cards'
 import { CardFace } from './CardFace'
 import { CARD_W, CARD_H, CANVAS_H, CANVAS_H_PORTRAIT, CANVAS_W_PORTRAIT, CANVAS_W_LANDSCAPE } from '../constants/canvas'
 import { useAnimations } from '../hooks/useAnimations'
 import { useGameScale } from '../hooks/useGameScale'
-
-/** All 52 cards, ordered by suit then rank, for the cascade display. */
-const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'] as const
-const ALL_CARDS = SUITS.flatMap((suit, si) =>
-  Array.from({ length: 13 }, (_, i) => ({
-    id: `win-${suit}-${i + 1}`,
-    suit,
-    rank: i + 1 as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13,
-    faceUp: true,
-    // Foundation slot index for color grouping
-    _slot: si,
-  }))
-)
+import { useGameStore } from '../store/useGameStore'
+import { makeRng } from '../engine/rng'
 
 interface WinCascadeProps {
   active: boolean
@@ -31,7 +20,7 @@ interface WinCascadeProps {
 
 interface FallingCard {
   id: string
-  card: (typeof ALL_CARDS)[0]
+  card: Card
   x: number
   delay: number
   duration: number
@@ -50,35 +39,28 @@ export function WinCascade({ active, foundations, onNewGame, onOpenSettings }: W
   const { layout } = useGameScale()
   const canvasH = layout === 'portrait' ? CANVAS_H_PORTRAIT : CANVAS_H
   const canvasW = layout === 'portrait' ? CANVAS_W_PORTRAIT : CANVAS_W_LANDSCAPE
-  const [cards, setCards] = useState<FallingCard[]>([])
-  const [visible, setVisible] = useState(false)
+  const seed = useGameStore((s) => s.seed)
+  const [dismissed, setDismissed] = useState(false)
+  const [wasActive, setWasActive] = useState(active)
+  if (active !== wasActive) {
+    setWasActive(active)
+    setDismissed(false)
+  }
+  const visible = active && !dismissed
 
-  // Build the falling card list once when `active` flips on
-  useEffect(() => {
-    if (!active) {
-      setVisible(false)
-      setCards([])
-      return
-    }
-    // Collect actual cards from foundations in order
-    const sourceCards = foundations.flatMap(pile => pile)
-    const list: FallingCard[] = sourceCards.map((card, i) => ({
+  // Seeded by the deal so the cascade differs per game but render stays pure
+  const cards = useMemo<FallingCard[]>(() => {
+    if (!active) return []
+    const rng = makeRng(`win-${seed}`)
+    return foundations.flatMap(pile => pile).map((card, i) => ({
       id: `wc-${card.id}`,
-      card: {
-        ...card,
-        id: `wc-${card.id}`,
-        faceUp: true,
-        // keep _slot optional — only used for color grouping, not needed here
-      } as (typeof ALL_CARDS)[0],
-      // Random horizontal position across the current canvas width
-      x: 8 + Math.random() * (canvasW - CARD_W - 16),
+      card: { ...card, id: `wc-${card.id}`, faceUp: true },
+      x: 8 + rng.next() * (canvasW - CARD_W - 16),
       delay: i * 0.04,
-      duration: 0.55 + Math.random() * 0.25,
-      rotation: (Math.random() - 0.5) * 40,
+      duration: 0.55 + rng.next() * 0.25,
+      rotation: (rng.next() - 0.5) * 40,
     }))
-    setCards(list)
-    setVisible(true)
-  }, [active, foundations, canvasW])
+  }, [active, foundations, canvasW, seed])
 
   if (!animationsEnabled || !visible) return null
 
@@ -110,13 +92,13 @@ export function WinCascade({ active, foundations, onNewGame, onOpenSettings }: W
                 <div className="flex gap-3 mt-5 justify-center">
                   <button
                     className="px-5 py-2 rounded-lg bg-white text-green-800 text-sm font-semibold border-0 cursor-pointer transition-colors hover:bg-white/90 shadow-md"
-                    onClick={(e) => { e.stopPropagation(); setVisible(false); onNewGame?.() }}
+                    onClick={(e) => { e.stopPropagation(); setDismissed(true); onNewGame?.() }}
                   >
                     New Game
                   </button>
                   <button
                     className="px-5 py-2 rounded-lg bg-white/25 hover:bg-white/35 text-white text-sm font-semibold border border-white/40 cursor-pointer transition-colors shadow-md backdrop-blur-sm"
-                    onClick={(e) => { e.stopPropagation(); setVisible(false); onOpenSettings?.() }}
+                    onClick={(e) => { e.stopPropagation(); setDismissed(true); onOpenSettings?.() }}
                   >
                     Settings
                   </button>

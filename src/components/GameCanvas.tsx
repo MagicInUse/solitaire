@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
 import { CANVAS_W_LANDSCAPE, CANVAS_H, CANVAS_W_PORTRAIT, CANVAS_H_PORTRAIT } from '../constants/canvas'
 import { PHONE_ACTIONS_H, useGameScale } from '../hooks/useGameScale'
-import { DebugOverlay, isDebugEnabled } from './DebugOverlay'
+import { DebugOverlay } from './DebugOverlay'
+import { isDebugEnabled } from '../utils/debug'
 
 /** Props for {@link GameCanvas}. */
 interface GameCanvasProps {

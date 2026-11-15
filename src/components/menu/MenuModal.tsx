@@ -9,7 +9,7 @@
  * triggers a game-state re-render. The modal resets to "New Game" on open.
  */
 
-import { useState, useEffect, useRef, type KeyboardEvent } from 'react'
+import { useState, useRef, type KeyboardEvent } from 'react'
 import { Spade, BookOpen, Palette, Settings, Trophy, Lightbulb, X, type LucideIcon } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { NewGamePanel }     from './panels/NewGamePanel'
@@ -37,12 +37,14 @@ interface MenuModalProps {
 
 export function MenuModal({ open, onClose }: MenuModalProps) {
   const [activePanel, setActivePanel] = useState<PanelId>('new-game')
+  const [wasOpen, setWasOpen] = useState(open)
   const tabRefs = useRef<Partial<Record<PanelId, HTMLButtonElement | null>>>({})
 
   // Reset to New Game tab each time the modal opens
-  useEffect(() => {
+  if (open !== wasOpen) {
+    setWasOpen(open)
     if (open) setActivePanel('new-game')
-  }, [open])
+  }
 
   function focusTab(panelId: PanelId) {
     setActivePanel(panelId)
@@ -50,7 +52,7 @@ export function MenuModal({ open, onClose }: MenuModalProps) {
   }
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let nextIndex = index
+    let nextIndex: number
 
     if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
       nextIndex = (index + 1) % NAV_ITEMS.length

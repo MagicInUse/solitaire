@@ -18,12 +18,6 @@ import { useGameScale } from '../hooks/useGameScale'
 import { useGameStore } from '../store/useGameStore'
 import { computeColumnOffsets, getTableauAvailableHeight } from '../utils/layout'
 
-/** True when the page URL requests the debug overlay (`?debug=1`). */
-export function isDebugEnabled(): boolean {
-  if (typeof window === 'undefined') return false
-  return new URLSearchParams(window.location.search).get('debug') === '1'
-}
-
 function readInset(name: string): string {
   if (typeof window === 'undefined') return '0'
   const probe = document.createElement('div')

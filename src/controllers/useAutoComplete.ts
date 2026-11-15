@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import { useGameStore }    from '../store/useGameStore'
 import { useSounds }       from '../hooks/useSounds'
 import { canMoveStack }    from '../engine/rules'
+import type { Pile }       from '../types/cards'
 
 export interface UseAutoCompleteReturn {
   autoCompleting:    boolean
@@ -35,41 +36,30 @@ export function useAutoComplete(): UseAutoCompleteReturn {
   const [autoCompleting, setAutoCompleting] = useState(false)
 
   // Reset on new game
-  useEffect(() => { setAutoCompleting(false) }, [dealId])
+  const [prevDealId, setPrevDealId] = useState(dealId)
+  if (dealId !== prevDealId) {
+    setPrevDealId(dealId)
+    setAutoCompleting(false)
+  }
 
   const canAutoComplete =
     !won && !autoCompleting &&
     stock.length === 0 && waste.length === 0 &&
     tableau.every(col => col.every(c => c.faceUp))
 
+  const nextMove = autoCompleting && !won ? findFoundationMove(tableau, foundations) : null
+  if (autoCompleting && !won && !nextMove) setAutoCompleting(false)
+
   useEffect(() => {
-    if (!autoCompleting || won) return
-
-    function findMove() {
-      for (let col = 0; col < 7; col++) {
-        const pile = tableau[col]
-        if (pile.length === 0) continue
-        const topCard = pile[pile.length - 1]
-        if (!topCard.faceUp) continue
-        for (let fi = 0; fi < 4; fi++) {
-          if (canMoveStack([topCard], foundations[fi], 'foundation')) {
-            return { colIndex: col, cardIndex: pile.length - 1, foundationIdx: fi }
-          }
-        }
-      }
-      return null
-    }
-
-    const move = findMove()
-    if (!move) { setAutoCompleting(false); return }
+    if (!nextMove) return
 
     const id = setTimeout(() => {
       moveCards({
         fromType: 'tableau',
-        fromIndex: move.colIndex,
-        cardIndex: move.cardIndex,
+        fromIndex: nextMove.colIndex,
+        cardIndex: nextMove.cardIndex,
         toType:    'foundation',
-        toIndex:   move.foundationIdx,
+        toIndex:   nextMove.foundationIdx,
       })
       playSfx('CARD_PLACE')
     }, 120)
@@ -79,4 +69,19 @@ export function useAutoComplete(): UseAutoCompleteReturn {
   }, [autoCompleting, won, tableau, foundations])
 
   return { autoCompleting, setAutoCompleting, canAutoComplete }
+}
+
+function findFoundationMove(tableau: Pile[], foundations: Pile[]) {
+  for (let col = 0; col < 7; col++) {
+    const pile = tableau[col]
+    if (pile.length === 0) continue
+    const topCard = pile[pile.length - 1]
+    if (!topCard.faceUp) continue
+    for (let fi = 0; fi < 4; fi++) {
+      if (canMoveStack([topCard], foundations[fi], 'foundation')) {
+        return { colIndex: col, cardIndex: pile.length - 1, foundationIdx: fi }
+      }
+    }
+  }
+  return null
 }
