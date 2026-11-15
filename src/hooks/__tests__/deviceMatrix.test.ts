@@ -55,7 +55,7 @@ describe('device matrix — landscape is height-bound', () => {
       return { name, layout, scale: +scale.toFixed(2), cardWpx, tableauPx, unusedWpct }
     })
 
-    // eslint-disable-next-line no-console
+     
     console.table(rows)
     expect(rows.length).toBe(DEVICES.length)
   })

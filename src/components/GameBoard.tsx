@@ -3,7 +3,7 @@ import {
   DragOverlay,
   MeasuringStrategy,
 } from "@dnd-kit/core"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { createPortal } from 'react-dom'
 import { LayoutGroup } from "framer-motion"
 import { useGameStore }    from "../store/useGameStore"
@@ -43,9 +43,7 @@ import { useBoardAnalysis }      from '../controllers/useBoardAnalysis'
  * Controller hooks own their respective side-effects.
  */
 export function GameBoard({ onOpenSettings, settingsOpen = false }: { onOpenSettings?: () => void; settingsOpen?: boolean }) {
-  const [a11yStatus, setA11yStatus] = useState('')
   const animationsEnabled = useAnimations()
-  const lastAnnouncedMoveCount = useRef<number | null>(null)
   const {
     foundations, tableau,
     newGame, won, isDealing, setDealing, dealId,
@@ -129,30 +127,22 @@ export function GameBoard({ onOpenSettings, settingsOpen = false }: { onOpenSett
     return () => clearTimeout(id)
   }, [dealId, isDealing, setDealing])
 
-  useEffect(() => {
-    if (lastAnnouncedMoveCount.current === null) {
-      lastAnnouncedMoveCount.current = moveCount
-      return
+  const [a11yStatus, setA11yStatus] = useState('New game started.')
+  const [announced, setAnnounced] = useState({ dealId, won, moveCount })
+  if (dealId !== announced.dealId || won !== announced.won || moveCount !== announced.moveCount) {
+    setAnnounced({ dealId, won, moveCount })
+    if (dealId !== announced.dealId) {
+      setA11yStatus('New game started.')
+    } else if (won && !announced.won) {
+      setA11yStatus(`You won in ${formatTime(elapsed)} with ${moveCount} moves.`)
+    } else if (moveCount !== announced.moveCount) {
+      setA11yStatus(
+        scoringMode === 'vegas'
+          ? `Move ${moveCount}. Time ${formatTime(elapsed)}. Profit ${formatVegasScore(vegasProfit)}.`
+          : `Move ${moveCount}. Time ${formatTime(elapsed)}. Score ${standardScore}.`,
+      )
     }
-
-    if (moveCount === lastAnnouncedMoveCount.current) return
-
-    lastAnnouncedMoveCount.current = moveCount
-    setA11yStatus(
-      scoringMode === 'vegas'
-        ? `Move ${moveCount}. Time ${formatTime(elapsed)}. Profit ${formatVegasScore(vegasProfit)}.`
-        : `Move ${moveCount}. Time ${formatTime(elapsed)}. Score ${standardScore}.`,
-    )
-  }, [elapsed, moveCount, scoringMode, standardScore, vegasProfit])
-
-  useEffect(() => {
-    if (!won) return
-    setA11yStatus(`You won in ${formatTime(elapsed)} with ${moveCount} moves.`)
-  }, [elapsed, moveCount, won])
-
-  useEffect(() => {
-    setA11yStatus('New game started.')
-  }, [dealId])
+  }
 
   // Waste sizing — shared between the placeholder div and RecycleAnimation
   const visibleWasteCount = drawMode === 1 ? Math.min(1, wasteLength) : Math.min(3, wasteLength)
@@ -249,13 +239,7 @@ export function GameBoard({ onOpenSettings, settingsOpen = false }: { onOpenSett
             </div>}
 
             <div className="text-white/80 text-[10px] h-3.5 truncate" role="status" aria-live="polite" data-drop-block>
-              {analysis.status === 'error'
-                ? `Move analysis unavailable: ${analysis.error}`
-                : analysis.status === 'pending'
-                  ? ''
-                  : analysis.result?.status === 'unknown'
-                    ? 'Search limit reached. No dead end proven; you can keep playing.'
-                    : hintMessage}
+              {analysis.status === 'error' || analysis.status === 'pending' ? '' : hintMessage}
             </div>
 
             <DeadGameModal

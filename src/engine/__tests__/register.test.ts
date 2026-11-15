@@ -76,7 +76,7 @@ describe('consolidated issue register', () => {
 
     const md = renderMarkdown(SEED_COUNT, outcomes, issues)
 
-    // eslint-disable-next-line no-console
+     
     console.log('\n' + md)
 
     if (process.env.WRITE_REGISTER) void writeArtifact(md)

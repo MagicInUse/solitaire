@@ -18,7 +18,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
 - **Hints** — 💡 recommends the first step of the same visible-card plan used by Auto Play. Card moves highlight source and destination; draw/recycle suggestions highlight the stock and explain the action. Repeated taps repeat the recommendation rather than running independent searches
 - **AI4ME auto-player** — an optional human-information bot. A shared Web Worker uses compact card states, best-first search, column symmetry reduction, and a recycle-aware transposition table to plan visible rearrangements, including foundation back-moves. It never reads hidden tableau faces or unseen stock faces, never scouts with Undo, and ends its plan at a reveal or unknown draw before reassessing. Cards already turned over are remembered for later stock passes during the current session; this memory resets on a new deal and is not persisted across reloads. Toggle its button and speed (Slow / Normal / Fast) in **Settings → Assist**
-- **No-progress detection** — the same worker result drives hints, Auto Play, and the **No Progress Left** modal. The modal appears only after exhaustive visible-state search finds no foundation gain, reveal, or new stock information reachable under the actual recycle rules. Reversible shuffles may still be legal; this is not a claim that an unseen deal is unwinnable. Time/node/memory limits return **unknown**, never a dead verdict; Auto Play stops with an explanatory status and manual play remains available
+- **No-progress detection** — the same worker result drives hints, Auto Play, and the **No Progress Left** modal. The modal appears only after exhaustive visible-state search finds no foundation gain, reveal, or new stock information reachable under the actual recycle rules. Reversible shuffles may still be legal; this is not a claim that an unseen deal is unwinnable. Time/node/memory limits return **unknown**, never a dead verdict; Auto Play stops without claiming a dead game and manual play remains available
 - **Auto-complete** — cascades remaining cards to foundations when the game is won
 - **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts rendered above the card cascade
 - **Persisted game state** — game survives page reloads and app restarts via `localStorage`
@@ -98,10 +98,10 @@ There are no keyboard-drag instructions advertising unsupported controls.
 |---|---|
 | Framework | [React 19](https://react.dev) + [TypeScript](https://www.typescriptlang.org) |
 | Build | [Vite 8](https://vitejs.dev) |
-| Tests | [Vitest 4](https://vitest.dev) — engine unit tests + seeded AI simulation harness |
+| Tests | [Vitest 5](https://vitest.dev) — engine unit tests + seeded AI simulation harness |
 | State | [Zustand 5](https://zustand-demo.pmnd.rs) with `persist` middleware |
 | Drag & Drop | [dnd-kit 6](https://dndkit.com) |
-| Animations | [Framer Motion 12](https://www.framer.com/motion/) |
+| Animations | [Framer Motion 14](https://www.framer.com/motion/) |
 | Styling | [Tailwind CSS 4](https://tailwindcss.com) (CSS-first config) |
 | PWA | [vite-plugin-pwa](https://vite-pwa-org.netlify.app) + Workbox |
 

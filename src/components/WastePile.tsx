@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react"
+import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { Card } from "../types/cards"
 import { useGameStore }    from "../store/useGameStore"
@@ -16,9 +16,12 @@ interface WastePileProps {
   isGestureSuppressed?: () => boolean
 }
 
+const visibleCount = (wasteLength: number, drawMode: number) =>
+  drawMode === 1 ? Math.min(1, wasteLength) : Math.min(3, wasteLength)
+
 /**
  * Renders the waste fan with full draw-1 / draw-3 entrance animations.
- * Manages its own animation-tracking refs so GameBoard stays free of them.
+ * Manages its own animation tracking so GameBoard stays free of it.
  */
 export function WastePile({ scale, isDraggingNow, onDoubleClick, selected, isGestureSuppressed }: WastePileProps) {
   const waste      = useGameStore((s) => s.waste)
@@ -28,27 +31,31 @@ export function WastePile({ scale, isDraggingNow, onDoubleClick, selected, isGes
   const deckLocation = useOptionsStore((s) => s.deckLocation)
   const animationsEnabled = useAnimations()
 
-  // ── Animation-tracking refs ─────────────────────────────────────────────
-  const prevDrawIdRef            = useRef(drawId)
-  const prevVisibleIdsRef        = useRef(new Set<string>())
-  const prevWasteVisibleCountRef = useRef(0)
-  const isFirstRenderRef         = useRef(true)
+  // ── Animation tracking: snapshot of the previously rendered waste fan ───
+  const [tracked, setTracked] = useState(() => ({
+    waste, drawId, drawMode,
+    isFirstRender: true,
+    prevDrawId: drawId,
+    prevVisibleIds: new Set<string>(),
+    prevVisibleCount: 0,
+  }))
+  if (tracked.waste !== waste || tracked.drawId !== drawId || tracked.drawMode !== drawMode) {
+    const prevCount = visibleCount(tracked.waste.length, tracked.drawMode)
+    setTracked({
+      waste, drawId, drawMode,
+      isFirstRender: false,
+      prevDrawId: tracked.drawId,
+      prevVisibleIds: new Set(prevCount === 0 ? [] : tracked.waste.slice(-prevCount).map(c => c.id)),
+      prevVisibleCount: prevCount,
+    })
+  }
 
-  const visibleWasteCount = drawMode === 1 ? Math.min(1, waste.length) : Math.min(3, waste.length)
+  const visibleWasteCount = visibleCount(waste.length, drawMode)
   const wasteContainerW   = visibleWasteCount <= 1 ? 48 : 48 + (visibleWasteCount - 1) * FAN_OFFSET
 
-  const wasNewDraw   = !isFirstRenderRef.current && !isDraggingNow && drawId !== prevDrawIdRef.current
-  const prevVisibleIds = prevVisibleIdsRef.current
-  const wasEmptyFan  = prevWasteVisibleCountRef.current === 0
-
-  // Update refs after every commit
-  useLayoutEffect(() => {
-    isFirstRenderRef.current = false
-    prevDrawIdRef.current = drawId
-    const count = drawMode === 1 ? Math.min(1, waste.length) : Math.min(3, waste.length)
-    prevWasteVisibleCountRef.current = count
-    prevVisibleIdsRef.current = new Set(waste.slice(-count).map(c => c.id))
-  })
+  const wasNewDraw   = !tracked.isFirstRender && !isDraggingNow && drawId !== tracked.prevDrawId
+  const prevVisibleIds = tracked.prevVisibleIds
+  const wasEmptyFan  = tracked.prevVisibleCount === 0
 
   return (
     <div className="relative h-16.75 shrink-0" style={{ width: wasteContainerW }}>
@@ -57,7 +64,7 @@ export function WastePile({ scale, isDraggingNow, onDoubleClick, selected, isGes
           const cardIdx   = waste.length - visibleWasteCount + i
           const isTop     = i === visibleWasteCount - 1
           const fanX      = i * FAN_OFFSET
-          const isNewCard = !isFirstRenderRef.current && !isDraggingNow && !prevVisibleIds.has(card.id)
+          const isNewCard = !tracked.isFirstRender && !isDraggingNow && !prevVisibleIds.has(card.id)
 
           const exitVariants = animationsEnabled ? {
             exit: (isDraw: boolean) => isDraw

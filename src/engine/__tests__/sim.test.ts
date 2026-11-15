@@ -346,7 +346,7 @@ describe('AI simulation harness (issue reveal)', () => {
         }
       }
       lines.push('═══════════════════════════════════════════════════════════════')
-      // eslint-disable-next-line no-console
+       
       console.log(lines.join('\n'))
 
       // ── Optional fixture dump for regression seeds (sweep / opt-in only) ─────

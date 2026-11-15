@@ -10,7 +10,7 @@
  * setFading() triggers a re-render right after the slide completes.
  * CSS transitions are invisible to FM's layout system — no jump.
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import vqLogo from '../assets/veriquery-logo.png'
 import { getCardBack } from '../utils/cardBacks'
 import { PADDING, CARD_W, CARD_H, GAP, CANVAS_W } from '../constants/canvas'
@@ -45,7 +45,9 @@ export function RecycleAnimation({ visibleWasteCount, deckLocation, cardBackId, 
   // resetStock() must run exactly once or the waste recycles twice.
   const completedRef = useRef(false)
   const onCompleteRef = useRef(onComplete)
-  onCompleteRef.current = onComplete
+  useLayoutEffect(() => {
+    onCompleteRef.current = onComplete
+  })
   function complete() {
     if (completedRef.current) return
     completedRef.current = true
@@ -75,7 +77,7 @@ export function RecycleAnimation({ visibleWasteCount, deckLocation, cardBackId, 
     const timer = setTimeout(complete, maxMs)
     return () => clearTimeout(timer)
     // complete/onComplete are accessed via refs; only re-arm on count change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [visibleWasteCount])
 
   const wasteContainerW = visibleWasteCount <= 1 ? CARD_W : CARD_W + (visibleWasteCount - 1) * FAN_OFFSET

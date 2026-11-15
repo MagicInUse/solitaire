@@ -1,2 +1,7 @@
 allowBuilds:
   sharp: true
+
+# Security: patched majors for transitive dev-only deps (workbox-build, typescript-eslint)
+overrides:
+  glob: ^14.0.2
+  minimatch: ^11.0.1

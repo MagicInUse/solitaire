@@ -31,7 +31,7 @@ describe('drill-down explanations for flagged seeds', () => {
       lines.push(a.report)
     }
     lines.push('───────────────────────────────────────────────────────────────')
-    // eslint-disable-next-line no-console
+     
     console.log(lines.join('\n'))
 
     expect(SUBJECTS.length).toBeGreaterThan(0)

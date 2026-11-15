@@ -11,6 +11,11 @@ import { useState, useEffect, useRef } from 'react'
  */
 export function useTimer(active: boolean, resetKey: number): number {
   const [elapsed, setElapsed] = useState(0)
+  const [prevResetKey, setPrevResetKey] = useState(resetKey)
+  if (resetKey !== prevResetKey) {
+    setPrevResetKey(resetKey)
+    setElapsed(0)
+  }
   // Wall-clock timestamp when the current run started (null = paused)
   const startRef = useRef<number | null>(null)
   // Seconds accumulated from previous runs (before the latest pause/resume)
@@ -20,7 +25,6 @@ export function useTimer(active: boolean, resetKey: number): number {
   useEffect(() => {
     accRef.current = 0
     startRef.current = active ? Date.now() : null
-    setElapsed(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey])
 
@@ -44,7 +48,7 @@ export function useTimer(active: boolean, resetKey: number): number {
     }, 1000)
 
     return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [active, resetKey])
 
   // Pause on tab visibility change

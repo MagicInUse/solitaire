@@ -14,8 +14,7 @@ export function VisualsPanel() {
     highContrastCards, setHighContrastCards } = useOptionsStore()
   const darkClickTimestamps = useRef<number[]>([])
 
-  const handleDarkClick = () => {
-    const now = Date.now()
+  const handleDarkClick = (now: number) => {
     darkClickTimestamps.current.push(now)
     // Prune clicks older than 2000ms
     darkClickTimestamps.current = darkClickTimestamps.current.filter(ts => now - ts < 2000)
@@ -49,7 +48,7 @@ export function VisualsPanel() {
             return (
               <button
                 key={id}
-                onClick={() => id === 'dark' ? handleDarkClick() : setColorScheme(id)}
+                onClick={(e) => id === 'dark' ? handleDarkClick(e.timeStamp) : setColorScheme(id)}
                 className={[
                   'flex-1 py-2.5 px-3 rounded-xl border text-[13px] font-semibold',
                   'transition-colors cursor-pointer',
