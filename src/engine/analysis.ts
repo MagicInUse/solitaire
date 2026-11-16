@@ -165,6 +165,21 @@ function advance(b: VisibleBoard, action: PlanAction, drawMode: 1 | 3): VisibleB
   return { ...b, waste, tableau, foundations }
 }
 
+function availableActions(b: VisibleBoard, recycles: number): PlanAction[] {
+  const actions: PlanAction[] = placements(b).map(move => ({ kind: 'move', move }))
+  if (b.stock.length) actions.push({ kind: 'draw' })
+  else if (b.waste.length && recycles > 0) actions.push({ kind: 'recycle' })
+  return actions
+}
+
+function informationGoal(b: VisibleBoard, action: PlanAction, drawMode: 1 | 3) {
+  if (action.kind === 'move' && action.move.fromType === 'tableau' &&
+    action.move.cardIndex > 0 && b.tableau[action.move.fromIndex!][action.move.cardIndex - 1] === 0) {
+    return 'reveal'
+  }
+  if (action.kind === 'draw' && b.stock.slice(-drawMode).includes(0)) return 'observe'
+}
+
 /** Columns are interchangeable; recycle resources are handled by dominance, not the key. */
 function positionKey(b: VisibleBoard): string {
   return `${b.stock.join(',')}/${b.waste.join(',')}/${b.foundations.join(',')}/` +
@@ -237,7 +252,18 @@ export function analyze(
   goal: 'progress' | 'win' = 'progress',
   now: () => number = () => performance.now(),
 ): AnalysisResult {
+  return searchGraph(input, limits, goal, now).next().value
+}
+
+function* searchGraph(
+  input: AnalysisInput,
+  limits: AnalysisLimits,
+  goal: 'progress' | 'win',
+  now: () => number,
+): Generator<AnalysisResult, AnalysisResult> {
   const started = now()
+  let sliceStarted = started
+  let sliceExpanded = 0
   const root: Node = {
     board: input.board, recycles: input.recyclesRemaining,
     parent: -1, depth: 0, priority: 0, key: positionKey(input.board),
@@ -262,24 +288,21 @@ export function analyze(
   const startFoundation = foundationCount(root.board)
   if (startFoundation === 52) return { status: 'won', plan: [], stats: stats() }
   while (frontier.length) {
-    if (expanded >= limits.maxNodes) return unknown('nodes')
-    if (now() - started >= limits.maxMs) return unknown('time')
+    if (expanded - sliceExpanded >= limits.maxNodes || now() - sliceStarted >= limits.maxMs) {
+      yield unknown(expanded - sliceExpanded >= limits.maxNodes ? 'nodes' : 'time')
+      sliceStarted = now()
+      sliceExpanded = expanded
+    }
     const id = frontier.pop()
     const node = nodes[id]
     if ((visited.get(node.key) ?? -1) > node.recycles) continue
     expanded++
-    const actions: PlanAction[] = placements(node.board).map(move => ({ kind: 'move', move }))
-    if (node.board.stock.length) actions.push({ kind: 'draw' })
-    else if (node.board.waste.length && node.recycles > 0) actions.push({ kind: 'recycle' })
-    for (const action of actions) {
-      const reveals = action.kind === 'move' && action.move.fromType === 'tableau' &&
-        action.move.cardIndex > 0 && node.board.tableau[action.move.fromIndex!][action.move.cardIndex - 1] === 0
-      const observes = action.kind === 'draw' &&
-        node.board.stock.slice(-input.drawMode).includes(0)
-      if (reveals || observes) {
+    for (const action of availableActions(node.board, node.recycles)) {
+      const information = informationGoal(node.board, action, input.drawMode)
+      if (information) {
         if (goal === 'progress') return {
           status: 'found', plan: reconstruct(id, action),
-          goal: reveals ? 'reveal' : 'observe', stats: stats(),
+          goal: information, stats: stats(),
         }
         informationCutoff = true
         continue
@@ -303,6 +326,90 @@ export function analyze(
     }
   }
   return informationCutoff ? unknown('information') : { status: 'no-progress', stats: stats() }
+}
+
+/** Live searches yield between budgets, retaining work instead of publishing a cutoff. */
+export function* analyzeInSlices(
+  input: AnalysisInput,
+  limits: AnalysisLimits = ANALYSIS_LIMITS,
+  now: () => number = () => performance.now(),
+): Generator<void, AnalysisResult> {
+  const search = searchGraph(input, limits, 'progress', now)
+  let step = search.next()
+  while (!step.done) {
+    yield
+    step = search.next()
+  }
+  if (step.value.status !== 'unknown') return step.value
+
+  // A full best-first graph cannot grow forever. DFS retains only its current
+  // path and a bounded pruning cache; eviction costs work, never completeness.
+  yield
+  return yield* searchDepthFirst(input, limits, now, step.value.stats)
+}
+
+function* searchDepthFirst(
+  input: AnalysisInput,
+  limits: AnalysisLimits,
+  now: () => number,
+  previous: SearchStats,
+): Generator<void, AnalysisResult> {
+  interface Frame {
+    input: AnalysisInput
+    key: string
+    action?: PlanAction
+    actions: Iterator<PlanAction>
+  }
+  const frame = (state: AnalysisInput, action?: PlanAction): Frame => ({
+    input: state, key: positionKey(state.board), action,
+    actions: availableActions(state.board, state.recyclesRemaining)[Symbol.iterator](),
+  })
+  const root = frame(input)
+  const stack = [root]
+  const path = new Set([root.key])
+  const visited = new Map([[root.key, input.recyclesRemaining]])
+  const started = now()
+  let sliceStarted = started
+  let expanded = 1
+  let sliceExpanded = 0
+  const stats = (): SearchStats => ({
+    expanded: previous.expanded + expanded,
+    discovered: previous.discovered + expanded,
+    elapsedMs: previous.elapsedMs + now() - started,
+  })
+  const plan = (last: PlanAction) => [...stack.slice(1).map(node => node.action!), last]
+  const startFoundation = foundationCount(input.board)
+  while (stack.length) {
+    if (expanded - sliceExpanded >= limits.maxNodes || now() - sliceStarted >= limits.maxMs) {
+      yield
+      sliceStarted = now()
+      sliceExpanded = expanded
+    }
+    const node = stack[stack.length - 1]
+    const next = node.actions.next()
+    if (next.done) {
+      path.delete(node.key)
+      stack.pop()
+      continue
+    }
+    const action = next.value
+    const information = informationGoal(node.input.board, action, input.drawMode)
+    if (information) return { status: 'found', goal: information, plan: plan(action), stats: stats() }
+    const child = nextVisibleInput(node.input, action)!
+    const count = foundationCount(child.board)
+    if (count === 52) return { status: 'won', plan: plan(action), stats: stats() }
+    if (count > startFoundation) {
+      return { status: 'found', goal: 'foundation', plan: plan(action), stats: stats() }
+    }
+    const key = positionKey(child.board)
+    if (path.has(key) || (visited.get(key) ?? -1) >= child.recyclesRemaining) continue
+    if (visited.size >= limits.maxStates) visited.clear()
+    visited.set(key, child.recyclesRemaining)
+    path.add(key)
+    stack.push(frame(child, action))
+    expanded++
+  }
+  return { status: 'no-progress', stats: stats() }
 }
 
 /** Validate an action against the current board before delayed execution. */

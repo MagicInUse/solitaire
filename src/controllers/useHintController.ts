@@ -21,9 +21,8 @@ export function useHintController(analysis: BoardAnalysis) {
     } else {
       useGameStore.getState().setActiveHint(null)
       setStockHintKey(null)
-      setMessage({ key: analysis.key, text: analysis.result?.status === 'unknown'
-        ? 'No continuation found within the search limit. You can keep playing.'
-        : 'No further visible progress found.' })
+      setMessage({ key: analysis.key, text: analysis.result?.status === 'no-progress'
+        ? 'No further visible progress found.' : '' })
     }
   }
   return {

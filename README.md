@@ -18,7 +18,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Undo** — stepped undo restores board + move count precisely; configurable limit (unlimited / 3 / 1 / off)
 - **Hints** — 💡 recommends the first step of the same visible-card plan used by Auto Play. Card moves highlight source and destination; draw/recycle suggestions highlight the stock and explain the action. Repeated taps repeat the recommendation rather than running independent searches
 - **AI4ME auto-player** — an optional human-information bot. A shared Web Worker uses compact card states, best-first search, column symmetry reduction, and a recycle-aware transposition table to plan visible rearrangements, including foundation back-moves. It never reads hidden tableau faces or unseen stock faces, never scouts with Undo, and ends its plan at a reveal or unknown draw before reassessing. Cards already turned over are remembered for later stock passes during the current session; this memory resets on a new deal and is not persisted across reloads. Toggle its button and speed (Slow / Normal / Fast) in **Settings → Assist**
-- **No-progress detection** — the same worker result drives hints, Auto Play, and the **No Progress Left** modal. The modal appears only after exhaustive visible-state search finds no foundation gain, reveal, or new stock information reachable under the actual recycle rules. Reversible shuffles may still be legal; this is not a claim that an unseen deal is unwinnable. Time/node/memory limits return **unknown**, never a dead verdict; Auto Play stops without claiming a dead game and manual play remains available
+- **No-progress detection** — the same worker result drives hints, Auto Play, and the **No Progress Left** modal. The modal appears only after exhaustive visible-state search finds no foundation gain, reveal, or new stock information reachable under the actual recycle rules. Reversible shuffles may still be legal; this is not a claim that an unseen deal is unwinnable. Difficult searches continue in cancellable background slices rather than stopping Auto Play or showing search-limit notices; manual play remains available
 - **Auto-complete** — cascades remaining cards to foundations when the game is won
 - **Win screen** — celebration overlay with **New Game** and **Settings** shortcuts rendered above the card cascade
 - **Persisted game state** — game survives page reloads and app restarts via `localStorage`
@@ -62,7 +62,7 @@ A polished, mobile-first Klondike Solitaire PWA. Plays beautifully in landscape 
 - **Undo spring** — undone cards snap back with a spring (`stiffness: 380, damping: 28`) for a tactile "rubber-band" feel
 - **Foundation pop-in** — a card landing on a foundation springs up from a slightly smaller scale, giving immediate "snap home" feedback the instant it arrives
 - **Hint pulse** — hinted cards glow with a looping platinum-coloured pulse so the suggestion is impossible to miss
-- Routine background move analysis stays quiet; hint guidance, analysis errors, and search-limit notices remain visible without shifting the board.
+- Routine background move analysis stays quiet; assistance buttons show a busy indicator while searching, without shifting the board or showing internal search-limit notices.
 - **Consistent cinematography** — shared duration / easing constants (`constants/animations.ts`) keep every motion on the same timing language, and a single `useAnimations()` hook gates all motion on both the in-app toggle and the OS reduced-motion preference
 
 ### Layout
@@ -145,10 +145,17 @@ optimal play or guaranteed wins.
 `useBoardAnalysis` owns one analysis client for all assists. Its 64-entry cache
 also retains valid plan suffixes, avoiding a re-solve after each setup move.
 Board/rule changes cancel CPU work by terminating the active worker; stale
-responses and delayed actions are rejected. Default limits are 250 ms of search,
-30,000 expanded nodes, and 60,000 stored states. There is no artificial recycle
-cap: unlimited passes collapse through state deduplication, while finite passes
-use remaining-recycle dominance. Worker failures/timeouts are shown explicitly.
+responses and delayed actions are rejected. Each live search slice allows 250 ms
+or 30,000 expanded nodes before yielding and continuing with its existing work.
+At 60,000 stored graph states, the search switches to depth-first traversal with
+a bounded pruning cache and cycle detection on the current path instead of
+growing the best-first graph indefinitely. Cache eviction may increase search
+time but cannot produce a false no-progress verdict. Difficult boards can take
+longer; Auto Play stays active and hints become available when analysis finishes.
+There is no artificial recycle cap: unlimited passes collapse through state
+deduplication, while finite passes use remaining-recycle dominance. Worker progress
+messages renew a five-second inactivity watchdog; actual worker failures are
+logged and stop Auto Play rather than being treated as a dead game.
 
 Live search timing can differ by device. Auto Play uses the normal recorded
 actions, so reproduce a played game with its seed **and action log**, not its

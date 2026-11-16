@@ -101,6 +101,7 @@ export function GameBoard({ onOpenSettings, settingsOpen = false }: { onOpenSett
       {scoringMode === 'standard' && <span className="phone-stat-time" title="Time" aria-label={`Time ${formatTime(elapsed)}`}>{formatTime(elapsed)}</span>}
     </>} canUndo={canUndo} hintsEnabled={hintsEnabled}
       hintDisabled={isAIPlaying || analysis.status !== 'ready'} showAI={showAI4ME}
+      analysisPending={analysis.status === 'pending'}
       isAIPlaying={isAIPlaying} aiDisabled={won || interactionBusy}
       showAuto={canAutoComplete || autoCompleting} autoCompleting={autoCompleting}
       interactionBusy={!!dragSourceInfo || isRecycling || isDealing}

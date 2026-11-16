@@ -10,6 +10,9 @@ class FakeWorker implements AnalysisWorker {
   request?: AnalysisRequest
   terminate = vi.fn()
   postMessage(message: AnalysisRequest) { this.request = message }
+  progress(id = this.request!.id) {
+    this.onmessage?.({ data: { id, pending: true } } as MessageEvent<AnalysisResponse>)
+  }
   reply(id = this.request!.id) {
     this.onmessage?.({ data: { id, result: analyze(this.request!.input) } } as MessageEvent<AnalysisResponse>)
   }
@@ -53,6 +56,7 @@ describe('shared analysis client', () => {
     const abort = new AbortController()
     const first = client.request(state(), abort.signal)
     const rejected = expect(first).rejects.toMatchObject({ name: 'AbortError' })
+    workers[0].progress()
     abort.abort()
     await rejected
     expect(workers[0].terminate).toHaveBeenCalledOnce()
@@ -102,6 +106,46 @@ describe('shared analysis client', () => {
     }
     const client = new AnalysisClient(() => { throw new Error('startup failed') })
     await expect(client.request(state(), new AbortController().signal)).rejects.toThrow('startup failed')
+  })
+
+  it('keeps ongoing searches pending beyond the watchdog and caches only the final plan', async () => {
+    vi.useFakeTimers()
+    const w = new FakeWorker()
+    const factory = vi.fn(() => w)
+    const client = new AnalysisClient(factory)
+    let resolved = false
+    const pending = client.request(state(), new AbortController().signal)
+    void pending.then(() => { resolved = true })
+    for (let slice = 0; slice < 3; slice++) {
+      await vi.advanceTimersByTimeAsync(4000)
+      w.progress()
+    }
+    expect(resolved).toBe(false)
+    expect(w.terminate).not.toHaveBeenCalled()
+    w.reply()
+    const result = await pending
+    expect(result).toMatchObject({ status: 'found' })
+    expect(await client.request(state(), new AbortController().signal)).toEqual(result)
+    expect(factory).toHaveBeenCalledOnce()
+    client.dispose()
+    await vi.advanceTimersByTimeAsync(5000)
+  })
+
+  it('still times out if a continuing worker stops reporting progress', async () => {
+    vi.useFakeTimers()
+    const w = new FakeWorker()
+    const client = new AnalysisClient(() => w)
+    const pending = client.request(state(), new AbortController().signal)
+    const rejected = expect(pending).rejects.toThrow('timed out')
+    vi.advanceTimersByTime(4000)
+    w.progress()
+    vi.advanceTimersByTime(4000)
+    w.progress(-1)
+    vi.advanceTimersByTime(1000)
+    await rejected
+    expect(w.terminate).toHaveBeenCalledOnce()
+    w.progress()
+    client.dispose()
   })
 
   it('does not run a worker for an already-aborted request', async () => {

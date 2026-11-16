@@ -57,12 +57,17 @@ export class AnalysisClient {
         }
       }
       const cancel = () => finish(undefined, new DOMException('Analysis cancelled', 'AbortError'))
-      const timeout = setTimeout(() => finish(undefined, new Error('Board analysis worker timed out.')), 5000)
+      const timedOut = () => finish(undefined, new Error('Board analysis worker timed out.'))
+      let timeout = setTimeout(timedOut, 5000)
       this.cancelActive = cancel
       signal.addEventListener('abort', cancel, { once: true })
       worker.onmessage = ({ data }) => {
         if (data.id !== id) return
-        if ('error' in data) finish(undefined, new Error(data.error))
+        if (settled) return
+        if ('pending' in data) {
+          clearTimeout(timeout)
+          timeout = setTimeout(timedOut, 5000)
+        } else if ('error' in data) finish(undefined, new Error(data.error))
         else finish(data.result)
       }
       worker.onerror = event => finish(undefined, new Error(event.message || 'Board analysis worker failed.'))
