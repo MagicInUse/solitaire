@@ -1,4 +1,4 @@
-import { Undo2, Lightbulb, Bot, Zap, Menu } from 'lucide-react'
+import { Undo2, Lightbulb, Bot, Zap, Menu, LoaderCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   canUndo: boolean
   hintsEnabled: boolean
   hintDisabled: boolean
+  analysisPending: boolean
   showAI: boolean
   isAIPlaying: boolean
   aiDisabled: boolean
@@ -32,11 +33,11 @@ export function GameActions(props: Props) {
         <button className={className} onClick={props.onUndo} disabled={!props.canUndo || props.interactionBusy} aria-label="Undo" title="Undo">
           <Undo2 size={size} /><span className={labelClass}>Undo</span>
         </button>
-        {props.hintsEnabled && <button className={className} onClick={props.onHint} disabled={props.hintDisabled || props.interactionBusy} aria-label="Hint" title="Hint">
-          <Lightbulb size={size} /><span className={labelClass}>Hint</span>
+        {props.hintsEnabled && <button className={className} onClick={props.onHint} disabled={props.hintDisabled || props.interactionBusy} aria-label="Hint" aria-busy={props.analysisPending} title={props.analysisPending ? 'Finding a hint...' : 'Hint'}>
+          {props.analysisPending ? <LoaderCircle size={size} className="animate-spin motion-reduce:animate-none" /> : <Lightbulb size={size} />}<span className={labelClass}>Hint</span>
         </button>}
-        {props.showAI && <button className={className} onClick={props.onAI} disabled={props.aiDisabled} aria-label={props.isAIPlaying ? 'Stop AI4ME' : 'AI4ME'} aria-pressed={props.isAIPlaying} title="AI4ME">
-          <Bot size={size} /><span className={labelClass}>AI4ME</span>
+        {props.showAI && <button className={className} onClick={props.onAI} disabled={props.aiDisabled} aria-label={props.isAIPlaying ? 'Stop AI4ME' : 'AI4ME'} aria-pressed={props.isAIPlaying} aria-busy={props.isAIPlaying && props.analysisPending} title={props.isAIPlaying && props.analysisPending ? 'Finding the next move...' : 'AI4ME'}>
+          {props.isAIPlaying && props.analysisPending ? <LoaderCircle size={size} className="animate-spin motion-reduce:animate-none" /> : <Bot size={size} />}<span className={labelClass}>AI4ME</span>
         </button>}
         {props.showAuto && <button className={className} onClick={props.onAuto} disabled={props.isAIPlaying || props.interactionBusy} aria-label="Auto-complete" aria-pressed={props.autoCompleting} title="Auto-complete">
           <Zap size={size} /><span className={labelClass}>Auto</span>

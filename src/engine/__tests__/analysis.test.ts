@@ -5,7 +5,7 @@ import { applyDraw, applyRecycle, applyMove, applyFlip } from '../gameActions'
 import { dealKlondike } from '../deck'
 import { enumeratePlacements } from '../solver'
 import {
-  analyze, analysisKey, cardCode, observeBoard, visibleBoard, nextVisibleInput,
+  analyze, analyzeInSlices, analysisKey, cardCode, observeBoard, visibleBoard, nextVisibleInput, isLegalPlanAction,
   ANALYSIS_LIMITS, type AnalysisInput, type VisibleBoard,
 } from '../analysis'
 
@@ -136,6 +136,69 @@ describe('visible-card analysis', () => {
     expect(result.stats.expanded).toBe(0)
   })
 
+  it.each(['nodes', 'time'] as const)('continues a live search across %s budgets', cutoff => {
+    const b = board()
+    b.foundations[0] = 3
+    b.tableau[0] = [0, 28]
+    b.tableau[1] = [43]
+    const limits = {
+      ...deterministic,
+      maxNodes: cutoff === 'nodes' ? 1 : Infinity,
+      maxMs: cutoff === 'time' ? 2 : Infinity,
+    }
+    let clock = 0
+    const search = analyzeInSlices(input(b), limits, () => clock++)
+    let step = search.next()
+    expect(step.done).toBe(false)
+    let slices = 1
+    while (!step.done && slices < 20) {
+      expect(step.value).toBeUndefined()
+      step = search.next()
+      slices++
+    }
+    expect(step.done).toBe(true)
+    expect(step.value).toMatchObject({
+      status: 'found', goal: 'reveal',
+      plan: [
+        { kind: 'move', move: { fromType: 'foundation' } },
+        { kind: 'move', move: { fromType: 'tableau', fromIndex: 0 } },
+      ],
+    })
+  })
+
+  it.each([0, 1, Infinity])('finishes after the graph cache fills with %s recycles', remaining => {
+    const b = board()
+    b.foundations[0] = 3
+    b.tableau[0] = [0, 28]
+    b.tableau[1] = [43]
+    const limits = { ...deterministic, maxNodes: 1, maxStates: 1 }
+    const finish = (state: AnalysisInput) => {
+      const search = analyzeInSlices(state, limits)
+      let step = search.next()
+      for (let slices = 0; !step.done && slices < 200; slices++) step = search.next()
+      expect(step.done).toBe(true)
+      return step.value
+    }
+    const state = input(b, remaining)
+    expect(analyze(state, limits)).toMatchObject({ status: 'unknown', reason: 'memory' })
+    const result = finish(state)
+    expect(result).toMatchObject({ status: 'found', goal: 'reveal' })
+    if (result?.status !== 'found') throw new Error('continued search did not find a plan')
+    let current = state
+    for (const action of result.plan.slice(0, -1)) {
+      expect(isLegalPlanAction(current, action)).toBe(true)
+      current = nextVisibleInput(current, action)!
+    }
+    expect(isLegalPlanAction(current, result.plan.at(-1)!)).toBe(true)
+    expect(nextVisibleInput(current, result.plan.at(-1)!)).toBeNull()
+
+    // Foundation back-moves and stock passes remain legal but cannot gain anything.
+    b.foundations[0] = 1
+    b.tableau = [[28], [], [], [], [], [], []]
+    b.stock = [13, 26]
+    expect(finish(input(b, remaining))).toMatchObject({ status: 'no-progress' })
+  })
+
   it('solves a visible endgame and distinguishes already won', () => {
     const b = board()
     b.foundations = [13, 26, 39, 51]
@@ -181,6 +244,13 @@ describe('visible-card analysis', () => {
       }
       const result = analyze(input(visibleBoard(b), 0), deterministic)
       expect(result.status, `small-board mask ${mask}`).toBe(found ? 'found' : 'no-progress')
+      const search = analyzeInSlices(input(visibleBoard(b), 0), {
+        ...deterministic, maxNodes: 1, maxStates: 1,
+      })
+      let step = search.next()
+      for (let slices = 0; !step.done && slices < 200; slices++) step = search.next()
+      expect(step.done, `continued small-board mask ${mask}`).toBe(true)
+      expect(step.value).toMatchObject({ status: found ? 'found' : 'no-progress' })
     }
   })
 

@@ -75,8 +75,9 @@ export function AssistPanel() {
         <p className="text-white/30 text-[11px] leading-relaxed -mt-2">
           AI4ME plans using visible cards and cards already turned over, just like a player
           with a good memory. It never peeks at hidden cards or scouts with Undo.
-          It reassesses after each reveal. If its search limit is reached, it stops
-          without declaring the game over. It does not guarantee a win.
+          It reassesses after each reveal and keeps searching in the background on
+          difficult boards. You can stop it or keep playing at any time.
+          It does not guarantee a win.
         </p>
       </section>
 
